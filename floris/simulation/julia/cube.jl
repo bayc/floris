@@ -24,3 +24,7 @@ function edit_shape(shape::Cube; x=nothing, y=nothing, z=nothing, name=nothing)
         shape.name = name
     end
 end
+
+function change_name(shape::Cube, name_object)
+    println("change_name: ", name_object.new_name)
+end

@@ -6,6 +6,10 @@
 
 import julia
 
+class NameObject():
+    def __init__(self, new_name):
+        self.new_name = new_name
+
 # Load the `shapes` module
 shapes = julia.Julia(compiled_modules=False)
 shapes.include("shapes.jl")
@@ -22,6 +26,7 @@ print(shapes.volume(cube))
 shapes.edit_shape(cube, x=1.)
 print(cube.x)
 print(shapes.volume(cube))
+shapes.change_name(cube, NameObject("cyoob"))
 
 # Instantiate a Sphere and do some stuff with it
 sphere = shapes.Sphere(
@@ -30,5 +35,3 @@ sphere = shapes.Sphere(
 )
 print(sphere.r)
 print(shapes.volume(sphere))
-
-
