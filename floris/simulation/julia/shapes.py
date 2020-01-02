@@ -1,27 +1,34 @@
-from julia.api import LibJulia
+# from julia.api import LibJulia
 
-api = LibJulia.load()
-api.sysimage = "sys.so"
-api.init_julia()
+# api = LibJulia.load()
+# api.sysimage = "sys.so"
+# api.init_julia()
 
-# from julia import Main
 import julia
 
-j = julia.Julia()
+# Load the `shapes` module
+shapes = julia.Julia(compiled_modules=False)
+shapes.include("shapes.jl")
 
-j.include("shapes.jl")
-
-x = 2.
-y = 12.
-z = 1.
-name = 'cube1'
-
-cube = j.Cube(x, y, z, name)
-
+# Instantiate a Cube and do some stuff with it
+cube = shapes.Cube(
+    2.0,
+    12.0,
+    1.0,
+    "cube"
+)
 print(cube.x)
-print(j.volume(cube))
-
-j.edit_shape(cube, x=1.)
-
+print(shapes.volume(cube))
+shapes.edit_shape(cube, x=1.)
 print(cube.x)
-print(j.volume(cube))
+print(shapes.volume(cube))
+
+# Instantiate a Sphere and do some stuff with it
+sphere = shapes.Sphere(
+    2,
+    "sphere"
+)
+print(sphere.r)
+print(shapes.volume(sphere))
+
+
