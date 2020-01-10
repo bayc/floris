@@ -36,7 +36,7 @@ class FLS(WakeCombination):
         super().__init__()
         self.model_string = "fls"
 
-    def function(self, u_field, u_wake):
+    def func(self, u_field, u_wake):
         """
         This method combines the base flow field with the velocity 
         defecits using freestream linear superpostion.
@@ -65,7 +65,7 @@ class SOSFS(WakeCombination):
         super().__init__()
         self.model_string = "sosfs"
 
-    def function(self, u_field, u_wake):
+    def func(self, u_field, u_wake):
         """
         This method combines the base flow field with the velocity 
         defecits using sum of squares.

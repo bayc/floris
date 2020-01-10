@@ -115,7 +115,7 @@ class Jensen(WakeVelocity):
         model_dictionary = parameter_dictionary[self.model_string]
         self.we = float(model_dictionary["we"])
 
-    def function(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
+    def func(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
         """
         Using the Jensen wake model, this method calculates and returns 
         the wake velocity deficits, caused by the specified turbine, 
@@ -257,7 +257,7 @@ class MultiZone(WakeVelocity):
         self.bU = float(model_dictionary["bU"])
         self.mU = [float(n) for n in model_dictionary["mU"]]
 
-    def function(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
+    def func(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
         """
         Using the original FLORIS multi-zone wake model, this method 
         calculates and returns the wake velocity deficits, caused by 
@@ -440,7 +440,7 @@ class Gauss(WakeVelocity):
         self.alpha = float(model_dictionary["alpha"])
         self.beta = float(model_dictionary["beta"])
 
-    def function(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
+    def func(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
         """
         Using the Gaussian wake model, this method calculates and 
         returns the wake velocity deficits, caused by the specified 
@@ -651,7 +651,7 @@ class Curl(WakeVelocity):
         self.veer_linear = float(model_dictionary["veer_linear"])
         self.requires_resolution = True
 
-    def function(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
+    def func(self, x_locations, y_locations, z_locations, turbine, turbine_coord, deflection_field, flow_field):
         """
         Using the Curl wake model, this method calculates and returns 
         the wake velocity deficits, caused by the specified turbine, 

@@ -122,18 +122,18 @@ class Wake():
         """
         Return the underlying function of the deflection model.
         """
-        return self._deflection_model.function
+        return self._deflection_model.func
 
     @property
     def velocity_function(self):
         """
         Return the underlying function of the velocity model.
         """
-        return self._velocity_model.function
+        return self._velocity_model.func
 
     @property
     def combination_function(self):
         """
         Return the underlying function of the combination model.
         """
-        return self._combination_model.function
+        return self._combination_model.func
