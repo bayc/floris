@@ -806,16 +806,16 @@ class FlorisInterface():
 
         return self.get_farm_power(include_unc=include_unc, unc_pmfs=unc_pmfs, unc_options=unc_options)
 
-    def get_farm_AEP(self, wd, ws, freq, yaw=None):
+    def get_farm_AEP(self, wd, ws, freq, yaw=None, no_wake=False):
         AEP_sum = 0
 
         for i in range(len(wd)):
             self.reinitialize_flow_field(
                 wind_direction=[wd[i]], wind_speed=[ws[i]])
             if yaw is None:
-                self.calculate_wake()
+                self.calculate_wake(no_wake=no_wake)
             else:
-                self.calculate_wake(yaw[i])
+                self.calculate_wake(yaw_angles=yaw[i], no_wake=no_wake)
 
             AEP_sum = AEP_sum + self.get_farm_power()*freq[i]*8760
         return AEP_sum

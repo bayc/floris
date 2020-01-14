@@ -63,7 +63,8 @@ class Optimization():
         if optOptions is not None:
             self.optOptions = optOptions
         else:
-            self.optOptions = {'Major feasibility tolerance' : 1e-1}
+            self.optOptions = {'Major feasibility tolerance' : 1e-1,
+                               'Major iterations limit' : 10}
 
         exec('self.opt = pyoptsparse.' + self.solver + \
              '(optOptions=self.optOptions)')
