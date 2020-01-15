@@ -12,6 +12,8 @@
 from . import wake_deflection
 from . import wake_velocity
 from . import wake_combination
+from julia import Main
+# julia = julia.Julia()
 
 
 class Wake():
@@ -43,9 +45,14 @@ class Wake():
         self.description = instance_dictionary["description"]
         properties = instance_dictionary["properties"]
         parameters = properties["parameters"]
-
+        print(__file__)
+        # Load the Julia-based wake models
+        # julia_module = julia.Julia()
+        Main.include("/Users/rmudafor/Desktop/floris-1/floris/simulation/wake_velocity.jl")
+        # julia.Main.include("/Users/rmudafor/Desktop/floris-1/simulation/wake_velocity.jl")
+        # julia_module.include("/Users/rmudafor/Desktop/floris-1/floris/simulation/wake_velocity.jl")
         self.velocity_models = {
-            "jensen": wake_velocity.Jensen(parameters),
+            "jensen": Main,
             "multizone": wake_velocity.MultiZone(parameters),
             "gauss": wake_velocity.Gauss(parameters),
             "curl": wake_velocity.Curl(parameters),
