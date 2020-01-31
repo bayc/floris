@@ -23,7 +23,7 @@ import pandas as pd
 
 
 # Parameters
-ti = 'low'  #hi/low
+ti = 'hi'  #hi/low
 
 # Load in SOWFA flow data and power results
 df_flow = pd.read_pickle('flow_data_%s.p' % ti)
@@ -32,7 +32,7 @@ df_power = pd.read_pickle('data_sowfa.p')
 if ti == 'hi':
     df_power = df_power[df_power.TI > 0.07]
     het_wind_speed_gain = 1.03
-    hom_wind_speed = 8.2
+    hom_wind_speed = 8.25
 else:
     df_power = df_power[df_power.TI < 0.07]
     het_wind_speed_gain = 1.02

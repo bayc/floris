@@ -41,6 +41,8 @@ y_locations = np.array(df_power_full.layout_y.values[0])
 
 # Iniitialize FLORIS
 fi = wfct.floris_interface.FlorisInterface("example_input.json")
+fi_b = wfct.floris_interface.FlorisInterface("example_input.json")
+fi_b.floris.farm.set_wake_model('blondel')
 
 
 
@@ -48,7 +50,7 @@ for ti_idx, ti in enumerate(ti_vals):
     if ti == 'hi':
         df_power_ti = df_power_full[df_power_full.TI > 0.07]
         ti_val = 0.09
-        wind_speed = 8.2
+        wind_speed = 8.25
     else:
         df_power_ti = df_power_full[df_power_full.TI < 0.07]
         ti_val = 0.065
@@ -61,6 +63,7 @@ for ti_idx, ti in enumerate(ti_vals):
         results_sowfa_1 = []
         results_sowfa_2 = []
         gauss = []
+        blondel = []
 
         for x_locations in x_locations_unique:
 
@@ -75,19 +78,29 @@ for ti_idx, ti in enumerate(ti_vals):
             fi.calculate_wake(yaw_angles=yaw_array)
             floris_power_array = np.array([p[0]/1000. for p in fi.get_turbine_power()])
 
+            # Repeat BLONDEL
+            fi_b.reinitialize_flow_field(wind_speed=[wind_speed],turbulence_intensity=[ti_val],layout_array =[x_locations,y_locations])
+            fi_b.calculate_wake(yaw_angles=yaw_array)
+            floris_b_power_array = np.array([p[0]/1000. for p in fi_b.get_turbine_power()])
+
+
             # Save all the results
             d_loc = (x_locations[2] - x_locations[0])/D
             d_array.append(d_loc)
             results_sowfa_1.append(sowfa_power_array[2])
             results_sowfa_2.append(sowfa_power_array[3])
             gauss.append(floris_power_array[3]) # Identical, just pick one
+            blondel.append(floris_b_power_array[3]) # Identical, just pick one
 
         ax = axarr[ti_idx, yaw_idx]
-        ax.plot(d_array,results_sowfa_1, color='k',marker='o',ls='None')
-        ax.plot(d_array,results_sowfa_2, color='k',marker='x',ls='None')
-        ax.plot(d_array,gauss, color='g',marker='.')
+        ax.plot(d_array,results_sowfa_1, color='k',marker='o',ls='None',label='SOWFA 1')
+        ax.plot(d_array,results_sowfa_2, color='k',marker='x',ls='None',label='SOWFA 2')
+        ax.plot(d_array,gauss, color='g',marker='.',label="gauss")
+        ax.plot(d_array,blondel, color='violet',marker='.',label="blondel")
         ax.set_title('%s TI, yaw=%d' % (ti,yaw))
         ax.grid(True)
+        if (ti_idx==0) and (yaw_idx==0):
+            ax.legend()
 
 
 
