@@ -22,9 +22,23 @@ import os
 import pandas as pd
 
 
+# Parameters
+ti = 'low'  #hi/low
+
 # Load in SOWFA flow data and power results
-df_flow = pd.read_pickle('flow_data.p')
+df_flow = pd.read_pickle('flow_data_%s.p' % ti)
 df_power = pd.read_pickle('data_sowfa.p')
+
+if ti == 'hi':
+    df_power = df_power[df_power.TI > 0.07]
+    het_wind_speed_gain = 1.03
+    hom_wind_speed = 8.2
+else:
+    df_power = df_power[df_power.TI < 0.07]
+    het_wind_speed_gain = 1.02
+    hom_wind_speed = 8.33
+
+df_power = df_power[df_power.yaw_0==0]
 
 # Iniitialize FLORIS
 fi = wfct.floris_interface.FlorisInterface("example_input.json")
@@ -34,7 +48,7 @@ random_case = df_power.sample()
 print(random_case)
 x_locations = np.array(random_case.layout_x.values[0])
 y_locations = np.array(random_case.layout_y.values[0])
-fi.reinitialize_flow_field(wind_speed=[8.2],layout_array =[x_locations,y_locations])
+fi.reinitialize_flow_field(wind_speed=[hom_wind_speed],layout_array =[x_locations,y_locations])
 
 yaw_array = np.array([random_case.yaw_0.values,random_case.yaw_1.values,random_case.yaw_2.values,random_case.yaw_3.values])
 sowfa_power_array = np.array([random_case.sowfa_power_0.values,random_case.sowfa_power_1.values,random_case.sowfa_power_2.values,random_case.sowfa_power_3.values])
@@ -54,6 +68,8 @@ ax.set_title('Homogenous')
 # Compare homogenous results
 floris_power_array = np.array([p[0]/1000. for p in fi.get_turbine_power()])
 
+het_wind_speed = het_wind_speed_gain * df_flow.u.values
+
 ax = axarr[1,0]
 row_locs = [1,3]
 ax.plot(x_locations[row_locs],sowfa_power_array[row_locs],'.-',color='k',label='SOWFA')
@@ -68,15 +84,30 @@ ax.set_title('Bottom Row')
 
 # Redo to Het
 
-# fi.reinitialize_flow_field( wind_speed=df_flow.u.values,
-#                                 wind_layout=[df_flow.x.values, df_flow.y.values])
+fi.reinitialize_flow_field( wind_speed=het_wind_speed.tolist(),#wind_direction=270. * np.ones_like(df_flow.u.values),
+                                wind_layout=[df_flow.x.values, df_flow.y.values])
 
-# fi.calculate_wake()
+fi.calculate_wake()
 
-# ax = axarr[0,1]
-# hor_plane = fi.get_hor_plane()
-# wfct.visualization.visualize_cut_plane(hor_plane, ax=ax)
-# ax.set_title('Heterogenous')
+# Compare homogenous results
+floris_power_array = np.array([p[0]/1000. for p in fi.get_turbine_power()])
+
+ax = axarr[0,1]
+hor_plane = fi.get_hor_plane()
+wfct.visualization.visualize_cut_plane(hor_plane, ax=ax)
+ax.set_title('Heterogenous')
+
+ax = axarr[1,1]
+row_locs = [1,3]
+ax.plot(x_locations[row_locs],sowfa_power_array[row_locs],'.-',color='k',label='SOWFA')
+ax.plot(x_locations[row_locs],floris_power_array[row_locs],'.-',color='r',label='FLORIS')
+ax.set_title('Top Row')
+
+ax = axarr[2,1]
+row_locs = [0,2]
+ax.plot(x_locations[row_locs],sowfa_power_array[row_locs],'.-',color='k',label='SOWFA')
+ax.plot(x_locations[row_locs],floris_power_array[row_locs],'.-',color='r',label='FLORIS')
+ax.set_title('Bottom Row')
 
 plt.show()
 
