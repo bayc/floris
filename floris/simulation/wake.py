@@ -9,8 +9,19 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
-from . import wake_deflection
-from . import wake_velocity
+from .wake_velocity.base_velocity_deficit import VelocityDeficit
+from .wake_velocity.curl import Curl as CurlDeficit
+from .wake_velocity.gauss import Gauss as GaussDeficit
+from .wake_velocity.jensen import Jensen
+from .wake_velocity.multizone import MultiZone
+from .wake_velocity.ishihara import Ishihara
+from .wake_velocity.blondel import Blondel as BlondelDeficit
+
+from .wake_deflection.base_velocity_deflection import VelocityDeflection
+from .wake_deflection.jimenez import Jimenez
+from .wake_deflection.gauss import Gauss as GaussDeflection
+from .wake_deflection.curl import Curl as CurlDeflection
+
 from . import wake_turbulence
 from . import wake_combination
 
@@ -32,10 +43,10 @@ class Wake():
                 {
                     "description": str,
                     "properties": dict({
-                        velocity_model: WakeVelocity
-                        deflection_model: WakeDeflection
+                        velocity_model: VelocityDeficit
+                        deflection_model: VelocityDeflection
                         parameters: dict({
-                            see WakeVelocity, WakeDeflection
+                            see VelocityDeficit, VelocityDeflection
                         })
                     }),
                 }
@@ -43,35 +54,31 @@ class Wake():
 
         self.description = instance_dictionary["description"]
         properties = instance_dictionary["properties"]
-        parameters = properties["parameters"]
-        wake_velocity_parameters = parameters["wake_velocity_parameters"]
-        wake_deflection_parameters = parameters["wake_deflection_parameters"]
-        wake_turbulence_parameters = parameters["wake_turbulence_parameters"]
+        self.parameters = properties["parameters"]
+        # TODO: Add support for tuning wake combination parameters?
         # wake_combination_parameters = parameters["wake_combination_parameters"]
 
         self._velocity_models = {
-            "jensen": wake_velocity.Jensen(wake_velocity_parameters),
-            "multizone": wake_velocity.MultiZone(wake_velocity_parameters),
-            "gauss": wake_velocity.Gauss(wake_velocity_parameters),
-            "curl": wake_velocity.Curl(wake_velocity_parameters),
-            "ishihara": wake_velocity.Ishihara(wake_velocity_parameters),
-            # "gauss_curl_hybrid":
-            # wake_velocity.gauss_curl_hybrid(wake_velocity_parameters)
+            "jensen": Jensen,
+            "multizone": MultiZone,
+            "gauss": GaussDeficit,
+            "ishihara": Ishihara,
+            "curl": CurlDeficit,
+            "blondel": BlondelDeficit
         }
         self.velocity_model = properties["velocity_model"]
 
         self._turbulence_models = {
-            "gauss": wake_turbulence.Gauss(wake_turbulence_parameters),
-            "ishihara": wake_turbulence.Ishihara(wake_turbulence_parameters),
-            "None": wake_turbulence.WakeTurbulence()
+            "gauss": wake_turbulence.Gauss,
+            "ishihara": wake_turbulence.Ishihara,
+            "None": wake_turbulence.WakeTurbulence
         }
         self.turbulence_model = properties["turbulence_model"]
 
         self._deflection_models = {
-            "jimenez": wake_deflection.Jimenez(wake_deflection_parameters),
-            "gauss": wake_deflection.Gauss(wake_deflection_parameters),
-            "curl": wake_deflection.Curl(wake_deflection_parameters),
-            # "gauss_curl_hybrid": wake_deflection.gauss_curl_hybrid(wake_deflection_parameters)#.GaussCurlHybrid
+            "jimenez": Jimenez,
+            "gauss": GaussDeflection,
+            "curl": CurlDeflection
         }
         self.deflection_model = properties["deflection_model"]
 
@@ -91,7 +98,6 @@ class Wake():
          - multizone
          - gauss
          - curl
-         - gauss_curl_hybrid
          - ishihara
 
         When assigning, the input can be a string or an instance of the model.
@@ -101,13 +107,12 @@ class Wake():
     @velocity_model.setter
     def velocity_model(self, value):
         if type(value) is str:
-            self._velocity_model = self._velocity_models[value]  #(
-            #self.parameters)
-        elif isinstance(value, wake_velocity.WakeVelocity):
+            self._velocity_model = self._velocity_models[value](self.parameters["wake_velocity_parameters"])
+        elif isinstance(value, VelocityDeficit):
             self._velocity_model = value
         else:
             raise ValueError(
-                "Invalid value given for WakeVelocity: {}".format(value))
+                "Invalid value given for VelocityDeficit: {}".format(value))
 
     @property
     def turbulence_model(self):
@@ -121,7 +126,7 @@ class Wake():
 
     @turbulence_model.setter
     def turbulence_model(self, value):
-        self._turbulence_model = self._turbulence_models[value]
+        self._turbulence_model = self._turbulence_models[value](self.parameters["wake_turbulence_parameters"])
 
     @property
     def deflection_model(self):
@@ -131,7 +136,6 @@ class Wake():
          - jimenez
          - gauss
          - curl
-         - gauss_curl_hybrid
 
         When assigning, the input can be a string or an instance of the model.
         """
@@ -140,13 +144,11 @@ class Wake():
     @deflection_model.setter
     def deflection_model(self, value):
         if type(value) is str:
-            self._deflection_model = self._deflection_models[value]  #(
-            #self.parameters)
-        elif isinstance(value, wake_deflection.WakeDeflection):
+            self._deflection_model = self._deflection_models[value](self.parameters["wake_deflection_parameters"])
+        elif isinstance(value, VelocityDeflection):
             self._deflection_model = value
         else:
-            raise ValueError(
-                "Invalid value given for WakeDeflection: {}".format(value))
+            raise ValueError("Invalid value given for VelocityDeflection: {}".format(value))
 
     @property
     def combination_model(self):
@@ -175,25 +177,25 @@ class Wake():
         """
         Return the underlying function of the deflection model.
         """
-        return self._deflection_model.function
+        return self.deflection_model.function
 
     @property
     def velocity_function(self):
         """
         Return the underlying function of the velocity model.
         """
-        return self._velocity_model.function
+        return self.velocity_model.function
 
     @property
     def turbulence_function(self):
         """
         Return the underlying function of the velocity model.
         """
-        return self._turbulence_model.function
+        return self.turbulence_model.function
 
     @property
     def combination_function(self):
         """
         Return the underlying function of the combination model.
         """
-        return self._combination_model.function
+        return self.combination_model.function
