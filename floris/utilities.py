@@ -276,8 +276,6 @@ def calc_unc_pmfs(unc_options=None):
 class LogClass:
     class __LogClass:
         def __init__(self, param_dict):
-            print('here')
-            print(param_dict)
             if param_dict is not None:
                 for key in param_dict:
                     if key == 'console':

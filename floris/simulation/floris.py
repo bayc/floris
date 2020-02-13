@@ -44,7 +44,6 @@ class Floris():
         logging_dict = self.meta_dict["logging"]
         self.logger = setup_logger(name=__name__,
                               logging_dict=logging_dict)
-        print(dir(self.logger))
         # self.log_to_console = self.logger.log_to_console
 
         # Initialize the simulation objects
