@@ -20,7 +20,8 @@ from scipy.stats import norm
 from floris.simulation import WindMap
 from .cut_plane import CutPlane, get_plane_from_flow_data
 from .interface_utilities import show_params, get_params, set_params
-
+import matplotlib.pyplot as plt
+import floris.tools as wfct
 
 class FlorisInterface():
     """
@@ -33,7 +34,7 @@ class FlorisInterface():
         self.input_file = input_file
         self.floris = Floris(input_file=input_file, input_dict=input_dict)
 
-    def calculate_wake(self, yaw_angles=None, no_wake=False, points=None):
+    def calculate_wake(self, yaw_angles=None, no_wake=False, points=None, track_n_upstream_wakes=False):
         """
         Wrapper to the floris flow field calculate_wake method
 
@@ -52,7 +53,7 @@ class FlorisInterface():
             self.floris.farm.set_yaw_angles(yaw_angles)
 
         self.floris.farm.flow_field.calculate_wake(no_wake=no_wake,
-                                                   points=points)
+                                                   points=points, track_n_upstream_wakes=track_n_upstream_wakes )
 
     def reinitialize_flow_field(self,
                                 wind_speed=None,
@@ -68,7 +69,7 @@ class FlorisInterface():
                                 with_resolution=None):
         """
         Wrapper to
-        :py:meth:`floris.simlulation.flow_field.reinitialize_flow_field`.
+        :py:meth:`floris.simulation.flow_field.reinitialize_flow_field`.
         All input values are used to update the flow_field instance.
 
         Args:
@@ -861,7 +862,6 @@ class FlorisInterface():
             AEP_sum = AEP_sum + self.get_farm_power() * freq[i] * 8760
         return AEP_sum
 
-
     def change_turbine(self, turb_num_array, turbine_change_dict):
         """
         Change turbine properties of given turbines
@@ -877,11 +877,11 @@ class FlorisInterface():
         # Now go through turbine list and re-init any in turb_num_array
         for t_idx in turb_num_array:
             print('Updating turbine: %00d' % t_idx)
-            self.floris.farm.turbines[t_idx].change_turbine_parameters(turbine_change_dict)
+            self.floris.farm.turbines[t_idx].change_turbine_parameters(
+                turbine_change_dict)
 
         # Finish by re-initalizing the flow field
         self.reinitialize_flow_field()
-
 
     @property
     def layout_x(self):
@@ -947,10 +947,12 @@ class FlorisInterface():
         for i, turbine in enumerate(self.floris.farm.turbines):
             turbine.rotor_diameter = rotor_diameter[i]
 
-    def show_model_parameters(self, params=None, verbose=False,
-                                    wake_velocity_model=True,
-                                    wake_deflection_model=True,
-                                    turbulence_model=True):
+    def show_model_parameters(self,
+                              params=None,
+                              verbose=False,
+                              wake_velocity_model=True,
+                              wake_deflection_model=True,
+                              turbulence_model=True):
         """
         Helper funtion to print the current wake model parameters and values.
                
@@ -974,13 +976,13 @@ class FlorisInterface():
                 Defaults to True.
         """
         show_params(self, params, verbose, wake_velocity_model,
-                                           wake_deflection_model,
-                                           turbulence_model)
+                    wake_deflection_model, turbulence_model)
 
-    def get_model_parameters(self, params=None, 
-                                   wake_velocity_model=True,
-                                   wake_deflection_model=True,
-                                   turbulence_model=True):
+    def get_model_parameters(self,
+                             params=None,
+                             wake_velocity_model=True,
+                             wake_deflection_model=True,
+                             turbulence_model=True):
         """
         Helper funtion to return the current wake model parameters and values.
                
@@ -1005,8 +1007,7 @@ class FlorisInterface():
             dict: Dictionary containing model parameters and their values.
         """
         model_params = get_params(self, params, wake_velocity_model,
-                                                wake_deflection_model,
-                                                turbulence_model)
+                                  wake_deflection_model, turbulence_model)
 
         return model_params
 
@@ -1021,6 +1022,16 @@ class FlorisInterface():
                 about each model parameter that is changed. Defaults to True.
         """
         set_params(self, params, verbose)
+
+
+    def show_flow_field(self):
+        # Get horizontal plane at default height (hub-height)
+        hor_plane = self.get_hor_plane()
+
+        # Plot and show
+        fig, ax = plt.subplots()
+        wfct.visualization.visualize_cut_plane(hor_plane, ax=ax)
+        plt.show()
 
     # TODO
     # Comment this out until sure we'll need it

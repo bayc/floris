@@ -4,11 +4,11 @@
   "description": "Example FLORIS Input file",
   "logging": {
     "console": {
-      "enable": true,
+      "enable": false,
       "level": "WARNING"
     },
     "file": {
-      "enable": true,
+      "enable": false,
       "level": "WARNING"
     }
   },
@@ -224,7 +224,7 @@
     "description": "wake",
     "properties": {
       "velocity_model": "gauss",
-      "turbulence_model": "ishihara",
+      "turbulence_model": "gauss",
       "deflection_model": "gauss",
       "combination_model": "sosfs",
       "parameters": {
@@ -300,12 +300,12 @@
             }
           },
           "blondel": {
-              "a_s": 0.3837,
-              "b_s": 0.003678,
-              "c_s": 0.2,
-              "a_f": 3.11,
-              "b_f": -0.68,
-              "c_f": 2.41
+            "a_s": 0.3837,
+            "b_s": 0.003678,
+            "c_s": 0.2,
+            "a_f": 3.11,
+            "b_f": -0.68,
+            "c_f": 2.41
           }
         },
         "wake_turbulence_parameters": {
