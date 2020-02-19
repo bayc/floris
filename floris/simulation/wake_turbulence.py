@@ -403,17 +403,17 @@ class Ishihara(WakeTurbulence):
         e = parameter_value_from_dict(self.e, Ct, ti_initial)
         f = parameter_value_from_dict(self.f, Ct, ti_initial)
 
-        k1 = np.cos(np.pi / 2 * (r / D - 0.5))**2
+        k1 = np.array(np.cos(np.pi / 2 * (r / D - 0.5))**2)
         k1[r / D > 0.5] = 1.0
 
-        k2 = np.cos(np.pi / 2 * (r / D + 0.5))**2
+        k2 = np.array(np.cos(np.pi / 2 * (r / D + 0.5))**2)
         k2[r / D > 0.5] = 0.0
 
         # Representative wake width = \sigma / D
         wake_width = kstar * (local_x / D) + epsilon
 
         # Added turbulence intensity = \Delta I_1 (x,y,z)
-        delta = ti_initial * np.sin(np.pi * (HH - local_z) / HH)**2
+        delta = np.array(ti_initial * np.sin(np.pi * (HH - local_z) / HH)**2)
         delta[local_z >= HH] = 0.0
         ti_calculation = 1 / (d + e * (local_x / D) + f *
                               (1 + (local_x / D))**(-2)) * (

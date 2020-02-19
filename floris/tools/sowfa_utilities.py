@@ -229,6 +229,10 @@ class SowfaInterface():
 
         # Get the points of data in a dataframe
         df =  get_plane_from_flow_data(self.flow_data,normal_vector='x', x3_value=x_loc)
+        df = df[df['x1'] >= x_bounds[0]]
+        df = df[df['x1'] <= x_bounds[1]]
+        df = df[df['x2'] >= y_bounds[0]]
+        df = df[df['x2'] <= y_bounds[1]]
 
         # Compute and return the cutplane
         return CutPlane(df)
@@ -532,6 +536,7 @@ def get_turbine_locations(turbine_array_file):
             if 'baseLocation' in line:
                 # Extract the coordinates
                 data = re.findall(r"[-+]?\d*\.\d+|\d+", line)
+                print(data)
 
                 # Append the data
                 x.append(float(data[0]))

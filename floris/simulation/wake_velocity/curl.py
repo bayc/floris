@@ -231,6 +231,7 @@ class Curl(VelocityDeficit):
         # calculate the curled wake effects due to the rotation
         # of the turbine rotor
         Gamma_wake_rotation = 2 * np.pi * D * (aI - aI**2) * Uinf / TSR
+        Gamma_wake_rotation = -1*Gamma_wake_rotation * 1.0
 
         # ======================================================================
         # add curl Elliptic

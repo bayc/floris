@@ -34,15 +34,21 @@ df_power_full = pd.read_pickle('data_sowfa.p')
 ti_vals = ['low','hi']
 yaw_values = [0,10,20]
 x_locations_unique = sorted(df_power_full.layout_x.unique())
+x_locations_unique2 = [val[2] for val in x_locations_unique]
+print(x_locations_unique2)
 
 # These dont change
 y_locations = np.array(df_power_full.layout_y.values[0])
-
+print(y_locations)
+# lkj
 
 # Iniitialize FLORIS
 fi = wfct.floris_interface.FlorisInterface("example_input.json")
 fi_b = wfct.floris_interface.FlorisInterface("example_input.json")
 fi_b.floris.farm.set_wake_model('blondel')
+
+# fi_curl = wfct.floris_interface.FlorisInterface("example_input.json")
+# fi_curl.floris.farm.set_wake_model('curl')
 
 
 
@@ -64,6 +70,7 @@ for ti_idx, ti in enumerate(ti_vals):
         results_sowfa_2 = []
         gauss = []
         blondel = []
+        curl = []
 
         for x_locations in x_locations_unique:
 
@@ -82,6 +89,12 @@ for ti_idx, ti in enumerate(ti_vals):
             fi_b.reinitialize_flow_field(wind_speed=[wind_speed],turbulence_intensity=[ti_val],layout_array =[x_locations,y_locations])
             fi_b.calculate_wake(yaw_angles=yaw_array)
             floris_b_power_array = np.array([p[0]/1000. for p in fi_b.get_turbine_power()])
+            print(floris_b_power_array)
+
+            # Repeat Curl
+            # fi_curl.reinitialize_flow_field(wind_speed=[wind_speed],turbulence_intensity=[ti_val],layout_array =[x_locations,y_locations])
+            # fi_curl.calculate_wake(yaw_angles=yaw_array)
+            # floris_curl_power_array = np.array([p[0]/1000. for p in fi_curl.get_turbine_power()])
 
 
             # Save all the results
@@ -89,19 +102,23 @@ for ti_idx, ti in enumerate(ti_vals):
             d_array.append(d_loc)
             results_sowfa_1.append(sowfa_power_array[2])
             results_sowfa_2.append(sowfa_power_array[3])
-            gauss.append(floris_power_array[3]) # Identical, just pick one
-            blondel.append(floris_b_power_array[3]) # Identical, just pick one
+            gauss.append(floris_power_array[1]) # Identical, just pick one
+            blondel.append(floris_b_power_array[1]) # Identical, just pick one
+            # curl.append(floris_curl_power_array[3])
 
         ax = axarr[ti_idx, yaw_idx]
         ax.plot(d_array,results_sowfa_1, color='k',marker='o',ls='None',label='SOWFA 1')
         ax.plot(d_array,results_sowfa_2, color='k',marker='x',ls='None',label='SOWFA 2')
         ax.plot(d_array,gauss, color='g',marker='.',label="gauss")
         ax.plot(d_array,blondel, color='violet',marker='.',label="blondel")
+        # ax.plot(d_array,curl, color='r',marker='.',label="curl")
         ax.set_title('%s TI, yaw=%d' % (ti,yaw))
         ax.grid(True)
         if (ti_idx==0) and (yaw_idx==0):
             ax.legend()
 
+        # if ti_idx == 0:
+        #     break
 
 
 
