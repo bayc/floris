@@ -1024,14 +1024,15 @@ class FlorisInterface():
         set_params(self, params, verbose)
 
 
-    def show_flow_field(self):
+    def show_flow_field(self, ax=None):
         # Get horizontal plane at default height (hub-height)
         hor_plane = self.get_hor_plane()
 
         # Plot and show
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
         wfct.visualization.visualize_cut_plane(hor_plane, ax=ax)
-        plt.show()
+        # plt.show()
 
     # TODO
     # Comment this out until sure we'll need it

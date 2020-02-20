@@ -231,7 +231,7 @@ class Curl(VelocityDeficit):
         # calculate the curled wake effects due to the rotation
         # of the turbine rotor
         Gamma_wake_rotation = 2 * np.pi * D * (aI - aI**2) * Uinf / TSR
-        Gamma_wake_rotation = -1*Gamma_wake_rotation * 1.0
+        Gamma_wake_rotation = Gamma_wake_rotation * 1.0
 
         # ======================================================================
         # add curl Elliptic
@@ -261,30 +261,32 @@ class Curl(VelocityDeficit):
             # locations of the tip vortices
             # top
             y_vortex_1 = turbine_coord.x2 + z * TiltFlag
-            z_vortex_1 = HH + z * YawFlag
+            z_vortex_1 = HH + z*1.1 * YawFlag
 
             # bottom
             y_vortex_2 = turbine_coord.x2 - z * TiltFlag
-            z_vortex_2 = HH - z * YawFlag
+            z_vortex_2 = HH - z*1.1 * YawFlag
+
+            vortex_offset = 0
 
             # vortex velocities
             # top
             v1, w1 = self._vortex(flow_field.y[idx, :, :] \
-                                  - y_vortex_1, flow_field.z[idx, :, :] \
+                                  - y_vortex_1 + vortex_offset, flow_field.z[idx, :, :] \
                                   - z_vortex_1, flow_field.x[idx, :, :] \
                                   - turbine_coord.x1, -Gamma, eps, Uinf)
             # bottom
             v2, w2 = self._vortex(flow_field.y[idx, :, :] \
-                                  - y_vortex_2, flow_field.z[idx, :, :] \
+                                  - y_vortex_2 + vortex_offset, flow_field.z[idx, :, :] \
                                   - z_vortex_2, flow_field.x[idx, :, :] \
                                   - turbine_coord.x1, Gamma, eps, Uinf)
 
             # add ground effects
-            v3, w3 = self._vortex(flow_field.y[idx, :, :] - y_vortex_1, \
+            v3, w3 = self._vortex(flow_field.y[idx, :, :] - y_vortex_1 + vortex_offset, \
                                   flow_field.z[idx, :, :] + z_vortex_1, \
                                   flow_field.x[idx, :, :] - turbine_coord.x1, \
                                   Gamma, eps, Uinf)
-            v4, w4 = self._vortex(flow_field.y[idx, :, :] - y_vortex_2, \
+            v4, w4 = self._vortex(flow_field.y[idx, :, :] - y_vortex_2 + vortex_offset, \
                                   flow_field.z[idx, :, :] + z_vortex_2, \
                                   flow_field.x[idx, :, :] - turbine_coord.x1, \
                                   -Gamma, eps, Uinf)
@@ -293,13 +295,13 @@ class Curl(VelocityDeficit):
             W[idx, :, :] += w1 + w2 + w3 + w4
 
         # add wake rotation
-        v5, w5 = self._vortex(flow_field.y[idx, :, :] - turbine_coord.x2, \
+        v5, w5 = self._vortex(flow_field.y[idx, :, :] - turbine_coord.x2 + vortex_offset, \
                     flow_field.z[idx, :, :] - turbine.hub_height, \
                     flow_field.x[idx, :, :] - turbine_coord.x1, \
                     Gamma_wake_rotation, 0.2 * D, Uinf) \
                     * (np.sqrt((flow_field.y[idx, :, :] - turbine_coord.x2)**2 \
                     + (flow_field.z[idx, :, :] - turbine.hub_height)**2) <= D/2)
-        v6, w6 = self._vortex(flow_field.y[idx, :, :] - turbine_coord.x2, \
+        v6, w6 = self._vortex(flow_field.y[idx, :, :] - turbine_coord.x2 + vortex_offset, \
                     flow_field.z[idx, :, :] + turbine.hub_height, \
                     flow_field.x[idx, :, :] - turbine_coord.x1, \
                     -Gamma_wake_rotation, 0.2 * D, Uinf) \
@@ -311,8 +313,13 @@ class Curl(VelocityDeficit):
         # decay the vortices as they move downstream
         lmda = 15
         kappa = 0.41
-        lm = kappa * z / (1 + kappa * z / lmda)
-        dudz_initial = np.gradient(U, z, axis=2)
+        z_tmp = np.linspace(
+            np.min(z_locations),
+            np.max(z_locations),
+            int(self.model_grid_resolution.x3)
+        )
+        lm = kappa * z_tmp / (1 + kappa * z_tmp / lmda)
+        dudz_initial = np.gradient(U, z_tmp, axis=2)
         nu = lm**2 * np.abs(dudz_initial[0, :, :])
 
         for i in range(idx, len(x) - 1):
@@ -322,7 +329,7 @@ class Curl(VelocityDeficit):
             W[i + 1, :, :] = W[idx, :, :] * eps**2 \
                 / (4 * nu * (flow_field.x[i, :, :]
                              - turbine_coord.x1) / Uinf + eps**2)
-
+ 
         # simple implementation of linear veer, added to the V component 
         # of the flow field
         z = np.linspace(
@@ -330,14 +337,22 @@ class Curl(VelocityDeficit):
             np.max(z_locations),
             int(self.model_grid_resolution.x3)
         )
-        z_min = HH
-        b_veer = veer_linear
-        m_veer = -b_veer / z_min
+        # z_min = HH
+        # b_veer = veer_linear
+        # m_veer = -b_veer / z_min
+        # m_veer = -0.5/63
+        # b_veer = 90/63
 
-        v_veer = m_veer * z + b_veer
+        # 0 = -.4/100 * 90 + b
+        # v_veer = m_veer * z + b_veer
+        # u = 0.01
+        # v_veer = -.4/100 * z + .4*90/100
+        # v_veer = -.4/100 * z_locations + .4*90/100
 
-        for i in range(len(z) - 1):
-            V[:, :, i] = V[:, :, i] + v_veer[i]
+        # for i in range(len(z) - 1):
+        #     V[:, :, i] = V[:, :, i] + v_veer[i]
+        
+        # V += v_veer
 
         # ======================================================================
         # SOLVE CURL
@@ -386,6 +401,7 @@ class Curl(VelocityDeficit):
             uw[i, 0, :] = np.zeros(len(z))
 
         uw[x_locations < turbine_coord.x1] = 0.0
+
 
         return uw, V, W
 

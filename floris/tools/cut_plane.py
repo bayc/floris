@@ -317,38 +317,38 @@ def subtract(cut_plane_a_in, cut_plane_b_in):
     # cut_plane_a.df = cut_plane_a.df.sort_values(['x1','x2'])
     return cut_plane_a
 
-# def calculate_wind_speed(cross_plane, x1_loc, x2_loc, R):
-#     """
-#     Calculate effective wind speed within specified range of a point.
+def calculate_wind_speed(cross_plane, x1_loc, x2_loc, R):
+    """
+    Calculate effective wind speed within specified range of a point.
 
-#     Args:
-#         cross_plane (:py:class:`floris.tools.cut_plane.CrossPlane`):
-#             plane of data.
-#         x1_loc (float): x1-coordinate of point of interst.
-#         x2_loc (float): x2-coordinate of point of interst.
-#         R (float): radius from point of interst to consider
+    Args:
+        cross_plane (:py:class:`floris.tools.cut_plane.CrossPlane`):
+            plane of data.
+        x1_loc (float): x1-coordinate of point of interst.
+        x2_loc (float): x2-coordinate of point of interst.
+        R (float): radius from point of interst to consider
 
-#     Returns:
-#         (float): effective wind speed
-#     """
-#     # Make a distance column
-#     distance = np.sqrt((cross_plane.x1_flat - x1_loc)**2 +
-#                        (cross_plane.x2_flat - x2_loc)**2)
+    Returns:
+        (float): effective wind speed
+    """
+    # Make a distance column
+    distance = np.sqrt((cross_plane.x1_flat - x1_loc)**2 +
+                       (cross_plane.x2_flat - x2_loc)**2)
 
-#     # Return the mean wind speed
-#     return np.cbrt(np.mean(cross_plane.u_cubed[distance < R]))
+    # Return the mean wind speed
+    return np.cbrt(np.mean(cross_plane.u_cubed[distance < R]))
 
-# def wind_speed_profile(cross_plane,
-#                         R, 
-#                         x2_loc, 
-#                         resolution=100, 
-#                         x1_locs=None):
+def wind_speed_profile(cross_plane,
+                        R, 
+                        x2_loc, 
+                        resolution=100, 
+                        x1_locs=None):
 
-#     if x1_locs is None:
-#         x1_locs = np.linspace(
-#             min(cross_plane.x1_flat), max(cross_plane.x1_flat), resolution)
-#     v_array = np.array([calculate_wind_speed(cross_plane,x1_loc, x2_loc, R) for x1_loc in x1_locs])
-#     return x1_locs, v_array
+    if x1_locs is None:
+        x1_locs = np.linspace(
+            min(cross_plane.x1_flat), max(cross_plane.x1_flat), resolution)
+    v_array = np.array([calculate_wind_speed(cross_plane,x1_loc, x2_loc, R) for x1_loc in x1_locs])
+    return x1_locs, v_array
 
 # def calculate_power(cross_plane,
 #                     x1_loc,

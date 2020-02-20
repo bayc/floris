@@ -35,7 +35,8 @@ sowfa_results = np.array([
 [1941.1,918.6,945.3,948,968.2,0,0,0,0,0]
 ])
 df_sowfa = pd.DataFrame(sowfa_results, 
-                        columns = ['p0','p1','p2','p3','p4','y0','y1','y2','y3','y4'] )
+                        columns = ['p0','p1','p2','p3','p4',
+                                   'y0','y1','y2','y3','y4'] )
 
 ## SET UP FLORIS AND MATCH TO BASE CASE
 wind_speed = 8.38
@@ -43,12 +44,20 @@ TI = 0.09
 
 # Initialize the FLORIS interface fi, use default gauss model
 fi = wfct.floris_interface.FlorisInterface("example_input.json")
-fi.reinitialize_flow_field(wind_speed=[wind_speed],turbulence_intensity=[TI],layout_array=(layout_x, layout_y))
+fi.reinitialize_flow_field(wind_speed=[wind_speed],
+                           turbulence_intensity=[TI],
+                           layout_array=(layout_x, layout_y))
+fi.floris.farm.wake.velocity_model.use_yaw_added_recovery = True
+fi.floris.farm.wake.velocity_model.use_secondary_steering = True
 
 # Setup blonel
 fi_b = wfct.floris_interface.FlorisInterface("example_input.json")
 fi_b.floris.farm.set_wake_model('blondel')
-fi_b.reinitialize_flow_field(wind_speed=[wind_speed],turbulence_intensity=[TI],layout_array=(layout_x, layout_y))
+fi_b.reinitialize_flow_field(wind_speed=[wind_speed],
+                             turbulence_intensity=[TI],
+                             layout_array=(layout_x, layout_y))
+fi_b.floris.farm.wake.velocity_model.use_yaw_added_recovery = True
+fi_b.floris.farm.wake.velocity_model.use_secondary_steering = True
 
 # Compare yaw combinations
 yaw_combinations = [
@@ -66,8 +75,13 @@ total_blondel = []
 for y_idx, yc in enumerate(yaw_combinations):
 
     # Collect SOWFA DATA
-    s_data = df_sowfa[(df_sowfa.y0==yc[0]) & (df_sowfa.y1==yc[1]) & (df_sowfa.y2==yc[2]) & (df_sowfa.y2==yc[3]) & (df_sowfa.y2==yc[4])]
-    s_data = [s_data.p0.values[0], s_data.p1.values[0],s_data.p2.values[0],s_data.p3.values[0],s_data.p4.values[0]]
+    s_data = df_sowfa[(df_sowfa.y0==yc[0]) & \
+                      (df_sowfa.y1==yc[1]) & \
+                      (df_sowfa.y2==yc[2]) & \
+                      (df_sowfa.y2==yc[3]) & \
+                      (df_sowfa.y2==yc[4])]
+    s_data = [s_data.p0.values[0], s_data.p1.values[0],
+              s_data.p2.values[0], s_data.p3.values[0],s_data.p4.values[0]]
     total_sowfa.append(np.sum(s_data))
 
     # Collect Gauss data
@@ -86,6 +100,18 @@ for y_idx, yc in enumerate(yaw_combinations):
     ax.plot(['T0','T1','T2','T3','T4'], g_data,'g',marker='o',label='Gauss')
     ax.plot(['T0','T1','T2','T3','T4'], b_data,'b',marker='*',label='Blondel')
 
+    fi.reinitialize_flow_field(wind_speed=[wind_speed],
+                             turbulence_intensity=[TI],
+                             layout_array=(layout_x, layout_y))
+
+    fi_b.reinitialize_flow_field(wind_speed=[wind_speed],
+                             turbulence_intensity=[TI],
+                             layout_array=(layout_x, layout_y))
+
+    fi_curl.reinitialize_flow_field(wind_speed=[wind_speed],
+                             turbulence_intensity=[TI],
+                             layout_array=(layout_x, layout_y))
+
 axarr[-1].legend()
 
 # Calculate totals and normalized totals
@@ -98,28 +124,28 @@ nom_gauss = total_gauss/total_gauss[0]
 total_blondel = np.array(total_blondel)
 nom_blondel = total_blondel/total_blondel[0]
 
-fig, axarr = plt.subplots(1,2,sharex=True,sharey=False,figsize=(8,5))
+# fig, axarr = plt.subplots(1,2,sharex=True,sharey=False,figsize=(8,5))
 
-# Show results
-ax  = axarr[0]
-ax.set_title("Total Power")
-ax.plot(yaw_names,total_sowfa,'k',marker='s',label='SOWFA',ls='None')
-ax.axhline(total_sowfa[0],color='k',ls='--')
-ax.plot(yaw_names,total_gauss,'g',marker='o',label='Gauss',ls='None')
-ax.axhline(total_gauss[0],color='g',ls='--')
-ax.plot(yaw_names,total_blondel,'b',marker='*',label='Blondel',ls='None')
-ax.axhline(total_blondel[0],color='b',ls='--')
-ax.legend()
+# # Show results
+# ax  = axarr[0]
+# ax.set_title("Total Power")
+# ax.plot(yaw_names,total_sowfa,'k',marker='s',label='SOWFA',ls='None')
+# ax.axhline(total_sowfa[0],color='k',ls='--')
+# ax.plot(yaw_names,total_gauss,'g',marker='o',label='Gauss',ls='None')
+# ax.axhline(total_gauss[0],color='g',ls='--')
+# ax.plot(yaw_names,total_blondel,'b',marker='*',label='Blondel',ls='None')
+# ax.axhline(total_blondel[0],color='b',ls='--')
+# ax.legend()
 
-# Normalized results
-ax  = axarr[1]
-ax.set_title("Normalized Power")
-ax.plot(yaw_names,nom_sowfa,'k',marker='s',label='SOWFA',ls='None')
-ax.axhline(nom_sowfa[0],color='k',ls='--')
-ax.plot(yaw_names,nom_gauss,'g',marker='o',label='Gauss',ls='None')
-ax.axhline(nom_gauss[0],color='g',ls='--')
-ax.plot(yaw_names,nom_blondel,'b',marker='*',label='Blondel',ls='None')
-ax.axhline(nom_blondel[0],color='b',ls='--')
+# # Normalized results
+# ax  = axarr[1]
+# ax.set_title("Normalized Power")
+# ax.plot(yaw_names,nom_sowfa,'k',marker='s',label='SOWFA',ls='None')
+# ax.axhline(nom_sowfa[0],color='k',ls='--')
+# ax.plot(yaw_names,nom_gauss,'g',marker='o',label='Gauss',ls='None')
+# ax.axhline(nom_gauss[0],color='g',ls='--')
+# ax.plot(yaw_names,nom_blondel,'b',marker='*',label='Blondel',ls='None')
+# ax.axhline(nom_blondel[0],color='b',ls='--')
 
 
 
