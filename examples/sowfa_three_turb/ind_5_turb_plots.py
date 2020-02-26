@@ -31,7 +31,7 @@ yaw_combinations = [
     (0,0,0,0,0), (25,0,0,0,0), (25,25,0,0,0)
 ]
 
-fig, axarr = plt.subplots(1,5,sharex=False,sharey=True,figsize=(15,3))
+fig, axarr = plt.subplots(1,5,sharex=False,sharey=True,figsize=(21,3))
 
 titles = ['Turbine 0', 'Turbine 1', 'Turbine 2', 'Turbine 3', 'Turbine 4']
 
@@ -40,7 +40,7 @@ n_turbs = 5
 for turb_ind in range(n_turbs):
     ax = axarr[turb_ind]
     ax.plot(np.array([SOWFA_base[turb_ind], SOWFA_25_0_0_0_0[turb_ind],
-            SOWFA_25_25_0_0_0[turb_ind]])/SOWFA_base[turb_ind], '-s')
+            SOWFA_25_25_0_0_0[turb_ind]])/SOWFA_base[turb_ind], '-s', labe)
 
     ax.plot(np.array([gauss_base[turb_ind], gauss_25_0_0_0_0[turb_ind],
             gauss_25_25_0_0_0[turb_ind]])/gauss_base[turb_ind], '-o')
@@ -52,8 +52,11 @@ for turb_ind in range(n_turbs):
     ax.set_xlabel('Yaw (deg.)')
     if turb_ind == 0:
         ax.set_ylabel('Relative Turbine Power')
+    ax.set_xticks(np.arange(len(yaw_combinations)))
     ax.set_xticklabels([str(yaw[turb_ind]) for yaw in yaw_combinations])
     # plt.xticks(np.arange(3), (yaw_combinations[0][turb_ind], yaw_combinations[1][turb_ind], yaw_combinations[2][turb_ind]))
+
+axarr[-1].legend()
 
 # plt.plot(np.array([SOWFA_base[turb_ind], SOWFA_25_0_0_0_0[turb_ind],
 #          SOWFA_25_25_0_0_0[turb_ind]]), '-s')
