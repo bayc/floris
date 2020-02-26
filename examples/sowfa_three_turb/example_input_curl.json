@@ -226,7 +226,7 @@
       "velocity_model": "gauss",
       "turbulence_model": "gauss",
       "deflection_model": "gauss",
-      "combination_model": "sosfs",
+      "combination_model": "max",
       "parameters": {
         "wake_velocity_parameters": {
           "jensen": {
@@ -248,13 +248,10 @@
             ]
           },
           "gauss": {
-            "ka": 0.38,
+            "ka": 0.3,
             "kb": 0.004,
             "alpha": 0.58,
-            "beta": 0.077,
-            "ad": 0.0,
-            "bd": 0.0,
-            "dm": 1.0
+            "beta": 0.077
           },
           "jimenez": {
             "kd": 0.05,
@@ -263,12 +260,12 @@
           },
           "curl": {
             "model_grid_resolution": [
-              250,
+              450,
               100,
               75
             ],
             "initial_deficit": 2.0,
-            "dissipation": 0.05,
+            "dissipation": 0.06,
             "veer_linear": 0.1,
             "initial": 0.1,
             "constant": 0.73,
