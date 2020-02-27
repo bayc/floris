@@ -40,13 +40,13 @@ n_turbs = 5
 for turb_ind in range(n_turbs):
     ax = axarr[turb_ind]
     ax.plot(np.array([SOWFA_base[turb_ind], SOWFA_25_0_0_0_0[turb_ind],
-            SOWFA_25_25_0_0_0[turb_ind]])/SOWFA_base[turb_ind], '-s', labe)
+            SOWFA_25_25_0_0_0[turb_ind]])/SOWFA_base[turb_ind], '-s', label='SOWFA')
 
     ax.plot(np.array([gauss_base[turb_ind], gauss_25_0_0_0_0[turb_ind],
-            gauss_25_25_0_0_0[turb_ind]])/gauss_base[turb_ind], '-o')
+            gauss_25_25_0_0_0[turb_ind]])/gauss_base[turb_ind], '-o', label='Gauss')
 
     ax.plot(np.array([curl_base[turb_ind], curl_25_0_0_0_0[turb_ind],
-            curl_25_25_0_0_0[turb_ind]])/curl_base[turb_ind], '-*')
+            curl_25_25_0_0_0[turb_ind]])/curl_base[turb_ind], '-*', label='Curl')
     
     ax.set_title(titles[turb_ind])
     ax.set_xlabel('Yaw (deg.)')
@@ -67,4 +67,5 @@ axarr[-1].legend()
 # plt.plot(np.array([curl_base[turb_ind], curl_25_0_0_0_0[turb_ind],
 #          curl_25_25_0_0_0[turb_ind]]), '-*')         
 
+plt.savefig('5turb_hiTI_relative_power.png', bbox_inches='tight')
 plt.show()

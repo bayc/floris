@@ -260,7 +260,7 @@
             },
             "curl": {
               "model_grid_resolution": [
-                300,
+                450,
                 100,
                 75
               ],

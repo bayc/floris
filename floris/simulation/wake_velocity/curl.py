@@ -15,6 +15,7 @@ from ...utilities import sind
 from .base_velocity_deficit import VelocityDeficit
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
+import copy
 
 
 class Curl(VelocityDeficit):
@@ -207,7 +208,8 @@ class Curl(VelocityDeficit):
         aI = turbine.aI
         # initial velocities in the stream-wise, span-wise, and
         # vertical direction
-        U, V, W = flow_field.u, flow_field.v, flow_field.w
+        # U, V, W = flow_field.u, flow_field.v, flow_field.w
+        U, V, W = copy.deepcopy(flow_field.u), copy.deepcopy(flow_field.v), copy.deepcopy(flow_field.w)
         # the tilt angle of the rotor of the turbine
         tilt = turbine.tilt_angle
 

@@ -27,7 +27,7 @@ TI = 0.09
 
 D = 126 # rotor diameter [m]
 dist_downstream = 6*D
-turbine_to_measure_behind = 0
+turbine_to_measure_behind = 2
 
 minspeed = -3.0
 maxspeed = 3.01
@@ -84,7 +84,7 @@ for case_name in ['C_0050_20_0_7_0_0']:
         x_bounds=x_floris_bnds,
         y_bounds=y_floris_bnds
         )
-    hor_plane_sowfa = sowfa_case.get_hor_plane(height=90)
+    # hor_plane_sowfa = sowfa_case.get_hor_plane(height=90)
 
     # Get the no-turbine sowfa flow
     sowfa_case_no_turbine = wfct.sowfa_utilities.SowfaInterface(
@@ -139,20 +139,20 @@ for case_name in ['C_0050_20_0_7_0_0']:
                                         cut_plane_floris_curl_vel_def,
                                         cut_plane_sowfa)
 
-    # fig, axarr = plt.subplots(1,3,figsize=(18, 4))
-    fig = plt.figure(figsize=(18, 4))
+    fig, axarr = plt.subplots(1,3,figsize=(18, 4))
+    # fig = plt.figure(figsize=(18, 4))
     font_size = 14
 
-    grid = ImageGrid(fig, 111,          # as in plt.subplot(111)
-        nrows_ncols=(1,3),
-        axes_pad=0.35,
-        share_all=True,
-        cbar_location="right",
-        cbar_mode="single",
-        cbar_size="5%",
-        cbar_pad=0.15,
-    )
-    axarr = [ax for ax in grid]
+    # grid = ImageGrid(fig, 111,          # as in plt.subplot(111)
+    #     nrows_ncols=(2,3),
+    #     axes_pad=0.35,
+    #     share_all=True,
+    #     cbar_location="right",
+    #     cbar_mode="single",
+    #     cbar_size="5%",
+    #     cbar_pad=0.15,
+    # )
+    # axarr = [ax for ax in grid]
 
     # ax = axarr[0,0]
     ax = axarr[0]
@@ -228,12 +228,12 @@ for case_name in ['C_0050_20_0_7_0_0']:
     ax.set_xlim([350.01,649.01])
     ax.set_ylim(10,170)
 
-    ax.cax.colorbar(im)
-    ax.cax.toggle_label(True)
-    cbar = fig.colorbar(im, cax=ax.cax)
-    cbar.set_ticks(np.arange(minspeed, maxspeed, 1.0))
-    cbar.set_label('Velocity Deficit (m/s)', fontsize=font_size)
-    cbar.ax.tick_params(labelsize=font_size)
+    # ax.cax.colorbar(im)
+    # ax.cax.toggle_label(True)
+    # cbar = fig.colorbar(im, cax=ax.cax)
+    # cbar.set_ticks(np.arange(minspeed, maxspeed, 1.0))
+    # cbar.set_label('Velocity Deficit (m/s)', fontsize=font_size)
+    # cbar.ax.tick_params(labelsize=font_size)
 
     # ax = axarr[1,1]
     # vis.visualize_cut_plane(
@@ -263,7 +263,7 @@ for case_name in ['C_0050_20_0_7_0_0']:
     # ax.set_title('SOWFA - Curl', fontsize=font_size)
     # ax.tick_params(labelsize=font_size)
 
-    # ax = axarr[2,0]
+    # ax = axarr[1,0]
     # vis.visualize_cut_plane(
     #     hor_plane_sowfa,
     #     ax=ax,
@@ -271,7 +271,7 @@ for case_name in ['C_0050_20_0_7_0_0']:
     #     maxSpeed=9.0
     # )
 
-    # ax = axarr[2,1]
+    # ax = axarr[1,1]
     # vis.visualize_cut_plane(
     #     hor_plane_floris_gauss,
     #     ax=ax,
@@ -279,7 +279,7 @@ for case_name in ['C_0050_20_0_7_0_0']:
     #     maxSpeed=9.0
     # )
 
-    # ax = axarr[2,2]
+    # ax = axarr[1,2]
     # vis.visualize_cut_plane(
     #     hor_plane_floris_curl,
     #     ax=ax,
@@ -287,5 +287,5 @@ for case_name in ['C_0050_20_0_7_0_0']:
     #     maxSpeed=9.0
     # )
     
-plt.savefig('3turb_cross_6D_T0.png', bbox_inches='tight')
+plt.savefig('3turb_cross_6D_T2.png', bbox_inches='tight')
 plt.show()
