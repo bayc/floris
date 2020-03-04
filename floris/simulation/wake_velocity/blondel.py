@@ -12,7 +12,7 @@
 
 from ...utilities import cosd, sind, tand, setup_logger
 from .base_velocity_deficit import VelocityDeficit
-import numpy as np
+import jax.numpy as np
 from scipy.special import gamma
 
 

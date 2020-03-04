@@ -11,7 +11,7 @@
 # the License.
 
 from .base_velocity_deflection import VelocityDeflection
-import numpy as np
+import jax.numpy as np
 
 
 class Curl(VelocityDeflection):

@@ -10,7 +10,7 @@
 # specific language governing permissions and limitations under the License.
 
 import json
-import autograd.numpy as np
+import jax.numpy as np
 
 
 class InputReader():

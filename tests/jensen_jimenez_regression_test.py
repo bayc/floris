@@ -12,7 +12,7 @@ specific language governing permissions and limitations under the License.
 """
 
 import pytest
-import numpy as np
+import jax.numpy as np
 import copy
 from floris.simulation import Floris
 from floris.simulation import TurbineMap

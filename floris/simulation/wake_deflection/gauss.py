@@ -10,9 +10,9 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+import jax.numpy as np
 from ...utilities import cosd, sind, tand
 from .base_velocity_deflection import VelocityDeflection
-import numpy as np
 
 
 class Gauss(VelocityDeflection):
@@ -151,14 +151,20 @@ class Gauss(VelocityDeflection):
         delta_near_wake = ((x_locations - xR) /
                            (x0 - xR)) * delta0 + (ad + bd *
                                                   (x_locations - coord.x1))
-        delta_near_wake[x_locations < xR] = 0.0
-        delta_near_wake[x_locations > x0] = 0.0
+        # autograd change
+        delta_near_wake = np.where(x_locations > xR, delta_near_wake, 0.0)
+        delta_near_wake = np.where(x_locations < x0, delta_near_wake, 0.0)
+        # delta_near_wake[x_locations < xR] = 0.0
+        # delta_near_wake[x_locations > x0] = 0.0
 
         # deflection in the far wake
         sigma_y = ky * (x_locations - x0) + sigma_y0
         sigma_z = kz * (x_locations - x0) + sigma_z0
-        sigma_y[x_locations < x0] = sigma_y0[x_locations < x0]
-        sigma_z[x_locations < x0] = sigma_z0[x_locations < x0]
+        # autograd change
+        sigma_y = np.where(x_locations > x0, sigma_y, sigma_y0[0][0][0])
+        sigma_z = np.where(x_locations > x0, sigma_z, sigma_z0[0][0][0])
+        # sigma_y[x_locations < x0] = sigma_y0[x_locations < x0]
+        # sigma_z[x_locations < x0] = sigma_z0[x_locations < x0]
 
         ln_deltaNum = (1.6 + np.sqrt(M0)) * (
             1.6 * np.sqrt(sigma_y * sigma_z /
@@ -170,7 +176,9 @@ class Gauss(VelocityDeflection):
             sigma_y0 * sigma_z0 /
             (ky * kz * M0)) * np.log(ln_deltaNum / ln_deltaDen) + (
                 ad + bd * (x_locations - coord.x1))
-        delta_far_wake[x_locations <= x0] = 0.0
+        # autograd change
+        delta_far_wake = np.where(x_locations > x0, delta_far_wake, 0.0)
+        # delta_far_wake[x_locations <= x0] = 0.0
 
         deflection = delta_near_wake + delta_far_wake
 

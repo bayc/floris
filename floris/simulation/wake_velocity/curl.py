@@ -13,7 +13,7 @@
 from ...utilities import Vec3
 from ...utilities import sind
 from .base_velocity_deficit import VelocityDeficit
-import numpy as np
+import jax.numpy as np
 from scipy.ndimage.filters import gaussian_filter
 
 

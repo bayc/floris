@@ -9,7 +9,8 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
-import autograd.numpy as np
+import jax.numpy as np
+import jax
 from ..utilities import Vec3
 from ..utilities import cosd, sind, tand
 import scipy as sp
@@ -76,17 +77,26 @@ class FlowField():
 
             for j in range(len(yt)):
                 for k in range(len(zt)):
-                    x_grid[i, j, k] = xt[i]
-                    y_grid[i, j, k] = yt[j]
-                    z_grid[i, j, k] = zt[k]
+                    jax.ops.index_update(x_grid, (i, j, k), xt[i])
+                    jax.ops.index_update(y_grid, (i, j, k), yt[j])
+                    jax.ops.index_update(z_grid, (i, j, k), zt[k])
+                    # x_grid[i, j, k] = xt[i]
+                    # y_grid[i, j, k] = yt[j]
+                    # z_grid[i, j, k] = zt[k]
 
                     xoffset = x_grid[i, j, k] - coord.x1
                     yoffset = y_grid[i, j, k] - coord.x2
-                    x_grid[i, j, k] = xoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) - \
+                    val = xoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) - \
                         yoffset * sind(-1 * self.wind_map.turbine_wind_direction[i]) + coord.x1
+                    jax.ops.index_update(x_grid, (i, j, k), val)
+                    # x_grid[i, j, k] = xoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) - \
+                    #     yoffset * sind(-1 * self.wind_map.turbine_wind_direction[i]) + coord.x1
 
-                    y_grid[i, j, k] = yoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) + \
+                    val = yoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) + \
                         xoffset * sind(-1*self.wind_map.turbine_wind_direction[i]) + coord.x2
+                    jax.ops.index_update(y_grid, (i, j, k), val)
+                    # y_grid[i, j, k] = yoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) + \
+                    #     xoffset * sind(-1*self.wind_map.turbine_wind_direction[i]) + coord.x2
 
         return x_grid, y_grid, z_grid
 
@@ -541,9 +551,13 @@ class FlowField():
             turbine.reset_velocities()
 
         # define the center of rotation with reference to 270 deg as center of flow field
-        x0 = np.mean([np.min(self.x), np.max(self.x)])
-        y0 = np.mean([np.min(self.y), np.max(self.y)])
-        center_of_rotation = Vec3(x0, y0, 0)
+        # x0 = np.mean([np.min(self.x), np.max(self.x)])
+        # y0 = np.mean([np.min(self.y), np.max(self.y)])
+        x0 = (np.min(self.x) + np.max(self.x))/2
+        y0 = (np.min(self.y) + np.max(self.y))/2
+        print('x0: ', x0)
+        print('y0: ', y0)
+        center_of_rotation = Vec3([x0, y0, 0])
 
         # Rotate the turbines such that they are now in the frame of reference
         # of the wind direction simplifying computing the wakes and wake overlap
@@ -564,12 +578,15 @@ class FlowField():
 
         rx = np.zeros(len(self.turbine_map.coords))
         ry = np.zeros(len(self.turbine_map.coords))
-        for i, cord in enumerate(self.turbine_map.coords):
-            rx[i], ry[i] = cord.x1prime, cord.x2prime
+        for i, coord in enumerate(self.turbine_map.coords):
+            jax.ops.index_update(rx, i, coord.x1prime)
+            jax.ops.index_update(ry, i, coord.x2prime)
+            # rx[i], ry[i] = coord.x1prime, coord.x2prime
 
         for coord, turbine in sorted_map:
             xloc, yloc = np.array(rx == coord.x1), np.array(ry == coord.x2)
-            idx = int(np.where(np.logical_and(yloc == True, xloc == True))[0])
+            # idx = int(np.where(np.logical_and(yloc == True, xloc == True))[0])
+            idx = np.where(np.logical_and(yloc == True, xloc == True))[0]
 
             if np.unique(self.wind_map.grid_wind_direction).size == 1:
                 # only rotate grid once for homogeneous wind direction

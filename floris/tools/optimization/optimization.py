@@ -11,7 +11,7 @@
 # the License.
 
 import sys
-import autograd.numpy as np
+import jax.numpy as np
 
 
 class Optimization():

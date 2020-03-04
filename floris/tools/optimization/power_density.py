@@ -12,7 +12,7 @@
 
 import sys
 import matplotlib.pyplot as plt
-import autograd.numpy as np
+import jax.numpy as np
 
 
 class PowerDensity():

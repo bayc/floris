@@ -12,7 +12,7 @@ specific language governing permissions and limitations under the License.
 """
 
 import pytest
-import numpy as np
+import jax.numpy as np
 from floris.simulation import Floris
 from .gauss_regression_test import GaussRegressionTest
 from .curl_regression_test import CurlRegressionTest

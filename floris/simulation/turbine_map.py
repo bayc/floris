@@ -12,7 +12,8 @@
 from ..utilities import Vec3
 from ..utilities import wrap_180
 from .turbine import Turbine
-import autograd.numpy as np
+import jax.numpy as np
+import jax
 
 
 class TurbineMap():
@@ -80,8 +81,10 @@ class TurbineMap():
         layout_y = np.zeros(len(self.coords))
         for i, coord in enumerate(self.coords):
             coord.rotate_on_x3(angle[i], center_of_rotation)
-            layout_x[i] = coord.x1prime
-            layout_y[i] = coord.x2prime
+            jax.ops.index_update(layout_x, i, coord.x1prime)
+            jax.ops.index_update(layout_y, i, coord.x2prime)
+            # layout_x[i] = coord.x1prime
+            # layout_y[i] = coord.x2prime
         return TurbineMap(layout_x, layout_y, self.turbines)
 
     def sorted_in_x_as_list(self):

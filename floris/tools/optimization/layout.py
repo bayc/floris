@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-import autograd.numpy as np
+import jax.numpy as np
 import matplotlib.pyplot as plt
 
 class Layout():

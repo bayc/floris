@@ -10,7 +10,7 @@
 # specific language governing permissions and limitations under the License.
 
 import os
-import autograd.numpy as np
+import jax.numpy as np
 from ..utilities import Vec3, Output
 from sklearn import neighbors
 

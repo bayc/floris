@@ -9,7 +9,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
-import autograd.numpy as np
+import jax.numpy as np
 from scipy.stats import norm
 import coloredlogs
 import logging
@@ -37,11 +37,11 @@ class Vec3():
             self.x2 = x2
             self.x3 = x3
 
-        if not (type(self.x1) == type(self.x2) and type(self.x1) == type(
-                self.x3) and type(self.x2) == type(self.x3)):
-            target_type = type(self.x1)
-            self.x2 = target_type(self.x2)
-            self.x3 = target_type(self.x3)
+        # if not (type(self.x1) == type(self.x2) and type(self.x1) == type(
+        #         self.x3) and type(self.x2) == type(self.x3)):
+            # target_type = type(self.x1)
+            # self.x2 = target_type(self.x2)
+            # self.x3 = target_type(self.x3)
 
         if string_format is not None:
             self.string_format = string_format

@@ -10,7 +10,7 @@
 # specific language governing permissions and limitations under the License.
 
 import pandas as pd
-import autograd.numpy as np
+import jax.numpy as np
 import matplotlib.pyplot as plt
 import os
 import pickle

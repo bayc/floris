@@ -11,7 +11,7 @@
 
 # Defines a bunch of tools for plotting and manipulating layouts for quick visualizations
 
-import autograd.numpy as np
+import jax.numpy as np
 import math
 import matplotlib.pyplot as plt
 import pandas as pd

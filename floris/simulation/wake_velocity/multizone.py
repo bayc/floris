@@ -12,7 +12,7 @@
 
 from ...utilities import cosd
 from .base_velocity_deficit import VelocityDeficit
-import numpy as np
+import jax.numpy as np
 
 
 class MultiZone(VelocityDeficit):
