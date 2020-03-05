@@ -164,12 +164,12 @@ class Turbine():
                 _cp = _cp[0]
             # autograd change
             print('cp: ', _cp)
-            return _cp
-            # return float(_cp)
+            # return _cp
+            return float(_cp)
 
     # autograd change
     def _fCp_manual_interp(self, at_wind_speed):
-        dist = np.nan_to_num(abs(self.power_thrust_table["wind_speed"] \
+        dist = np.nan_to_num(abs(np.array(self.power_thrust_table["wind_speed"]) \
                - at_wind_speed))
         idx1 = np.where(dist == np.min(dist))[0][0]
         if np.min(dist) == 0:
@@ -208,12 +208,12 @@ class Turbine():
                 _ct = 0.99
             #autograd change
             print('_ct: ', _ct)
-            return _ct
-            # return float(_ct)
+            # return _ct
+            return float(_ct)
 
     # autograd change
     def _fCt_manual_interp(self, at_wind_speed):
-        dist = np.nan_to_num(abs(self.power_thrust_table["wind_speed"] \
+        dist = np.nan_to_num(abs(np.array(self.power_thrust_table["wind_speed"]) \
                - at_wind_speed))
         idx1 = np.where(dist == np.min(dist))[0][0]
         if np.min(dist) == 0:
@@ -539,7 +539,8 @@ class Turbine():
             >>> avg_vel = floris.farm.turbines[0].average_velocity()
         """
         # remove all invalid numbers from interpolation
-        data = self.velocities[np.where(np.isnan(self.velocities) == False)]
+        # data = self.velocities[np.where(np.isnan(self.velocities) == False)]
+        data = np.array(self.velocities)
         # autograd change
         avg_vel = (np.mean(data**3))**(1./3)
         # avg_vel = np.cbrt(np.mean(data**3))

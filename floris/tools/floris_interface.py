@@ -892,10 +892,11 @@ class FlorisInterface():
             layout_x (np.array): Wind turbine x-coordinate (east-west).
         """
         coords = self.floris.farm.flow_field.turbine_map.coords
-        layout_x = np.zeros(len(coords))
-        for i, coord in enumerate(coords):
-            layout_x[i] = coord.x1
-        return layout_x
+        # layout_x = np.zeros(len(coords))
+        layout_x_vals = np.array([coord.x1 for coord in coords])
+        # for i, coord in enumerate(coords):
+        #     layout_x[i] = coord.x1
+        return layout_x_vals
 
     @property
     def layout_y(self):
@@ -906,10 +907,11 @@ class FlorisInterface():
             layout_y (np.array): Wind turbine y-coordinate (east-west).
         """
         coords = self.floris.farm.flow_field.turbine_map.coords
-        layout_y = np.zeros(len(coords))
-        for i, coord in enumerate(coords):
-            layout_y[i] = coord.x2
-        return layout_y
+        # layout_y = np.zeros(len(coords))
+        layout_y_vals = np.array([coord.x2 for coord in coords])
+        # for i, coord in enumerate(coords):
+            # layout_y[i] = coord.x2
+        return layout_y_vals
 
     def TKE_to_TI(self, turbulence_kinetic_energy, wind_speed):
         """

@@ -65,7 +65,8 @@ def line_contour_cut_plane(cut_plane,
                                              cut_plane.resolution[0])
     u_mesh = cut_plane.df.u.values.reshape(cut_plane.resolution[1],
                                            cut_plane.resolution[0])
-    Zm = np.ma.masked_where(np.isnan(u_mesh), u_mesh)
+    # Zm = np.ma.masked_where(np.isnan(u_mesh), u_mesh)
+    Zm = u_mesh
     rcParams['contour.negative_linestyle'] = 'solid'
 
     # # Plot the cut-through
@@ -114,7 +115,8 @@ def visualize_cut_plane(cut_plane,
                                              cut_plane.resolution[0])
     u_mesh = cut_plane.df.u.values.reshape(cut_plane.resolution[1],
                                            cut_plane.resolution[0])
-    Zm = np.ma.masked_where(np.isnan(u_mesh), u_mesh)
+    # Zm = np.ma.masked_where(np.isnan(u_mesh), u_mesh)
+    Zm = u_mesh
 
     # Plot the cut-through
     im = ax.pcolormesh(x1_mesh,

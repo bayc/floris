@@ -77,9 +77,9 @@ class FlowField():
 
             for j in range(len(yt)):
                 for k in range(len(zt)):
-                    jax.ops.index_update(x_grid, (i, j, k), xt[i])
-                    jax.ops.index_update(y_grid, (i, j, k), yt[j])
-                    jax.ops.index_update(z_grid, (i, j, k), zt[k])
+                    x_grid = jax.ops.index_update(x_grid, (i, j, k), xt[i])
+                    y_grid = jax.ops.index_update(y_grid, (i, j, k), yt[j])
+                    z_grid = jax.ops.index_update(z_grid, (i, j, k), zt[k])
                     # x_grid[i, j, k] = xt[i]
                     # y_grid[i, j, k] = yt[j]
                     # z_grid[i, j, k] = zt[k]
@@ -88,13 +88,13 @@ class FlowField():
                     yoffset = y_grid[i, j, k] - coord.x2
                     val = xoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) - \
                         yoffset * sind(-1 * self.wind_map.turbine_wind_direction[i]) + coord.x1
-                    jax.ops.index_update(x_grid, (i, j, k), val)
+                    x_grid = jax.ops.index_update(x_grid, (i, j, k), val)
                     # x_grid[i, j, k] = xoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) - \
                     #     yoffset * sind(-1 * self.wind_map.turbine_wind_direction[i]) + coord.x1
 
                     val = yoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) + \
                         xoffset * sind(-1*self.wind_map.turbine_wind_direction[i]) + coord.x2
-                    jax.ops.index_update(y_grid, (i, j, k), val)
+                    y_grid = jax.ops.index_update(y_grid, (i, j, k), val)
                     # y_grid[i, j, k] = yoffset * cosd(-1 * self.wind_map.turbine_wind_direction[i]) + \
                     #     xoffset * sind(-1*self.wind_map.turbine_wind_direction[i]) + coord.x2
 
@@ -555,8 +555,6 @@ class FlowField():
         # y0 = np.mean([np.min(self.y), np.max(self.y)])
         x0 = (np.min(self.x) + np.max(self.x))/2
         y0 = (np.min(self.y) + np.max(self.y))/2
-        print('x0: ', x0)
-        print('y0: ', y0)
         center_of_rotation = Vec3([x0, y0, 0])
 
         # Rotate the turbines such that they are now in the frame of reference
@@ -579,16 +577,18 @@ class FlowField():
         rx = np.zeros(len(self.turbine_map.coords))
         ry = np.zeros(len(self.turbine_map.coords))
         for i, coord in enumerate(self.turbine_map.coords):
-            jax.ops.index_update(rx, i, coord.x1prime)
-            jax.ops.index_update(ry, i, coord.x2prime)
+            rx = jax.ops.index_update(rx, i, coord.x1prime)
+            ry = jax.ops.index_update(ry, i, coord.x2prime)
             # rx[i], ry[i] = coord.x1prime, coord.x2prime
 
         for coord, turbine in sorted_map:
             xloc, yloc = np.array(rx == coord.x1), np.array(ry == coord.x2)
-            # idx = int(np.where(np.logical_and(yloc == True, xloc == True))[0])
-            idx = np.where(np.logical_and(yloc == True, xloc == True))[0]
+            idx = int(np.where(np.logical_and(yloc == True, xloc == True))[0])
+            print('idx: ', idx)
 
-            if np.unique(self.wind_map.grid_wind_direction).size == 1:
+            # if np.unique(self.wind_map.grid_wind_direction).size == 1:
+            if ([x == self.wind_map.grid_wind_direction[0] for x in \
+                self.wind_map.grid_wind_direction]):
                 # only rotate grid once for homogeneous wind direction
                 rotated_x, rotated_y = initial_rotated_x, initial_rotated_y
 
@@ -625,15 +625,16 @@ class FlowField():
                 self)
 
             ###########
-            # include turbulence model for the gaussian wake model from Porte-Agel
+            # include turbulence model for the gaussian wake model from
+            # Porte-Agel
             if self.wake.turbulence_model.model_string == 'gauss' or \
                     self.wake.turbulence_model.model_string == 'blondel':
-                # compute area overlap of wake on other turbines and update downstream turbine turbulence intensities
+                # compute area overlap of wake on other turbines and update
+                # downstream turbine turbulence intensities
                 for coord_ti, turbine_ti in sorted_map:
                     xloc, yloc = np.array(rx == coord_ti.x1), np.array(
                         ry == coord_ti.x2)
-                    idx = int(
-                        np.where(np.logical_and(yloc == True,
+                    idx = int(np.where(np.logical_and(yloc == True,
                                                 xloc == True))[0])
 
                     if coord_ti.x1 > coord.x1 and np.abs(
@@ -641,21 +642,25 @@ class FlowField():
                             coord_ti.x2) < 2 * turbine.rotor_diameter:
                         # only assess the effects of the current wake
 
-                        freestream_velocities = turbine_ti.calculate_swept_area_velocities(
-                            self.u_initial, coord_ti, rotated_x, rotated_y,
-                            rotated_z)
+                        freestream_velocities = \
+                            turbine_ti.calculate_swept_area_velocities(
+                                self.u_initial, coord_ti, rotated_x, rotated_y,
+                                rotated_z)
 
-                        wake_velocities = turbine_ti.calculate_swept_area_velocities(
-                            self.u_initial - turb_u_wake, coord_ti, rotated_x,
-                            rotated_y, rotated_z)
+                        wake_velocities = \
+                            turbine_ti.calculate_swept_area_velocities(
+                                self.u_initial - turb_u_wake, coord_ti,
+                                rotated_x, rotated_y, rotated_z)
 
                         area_overlap = self._calculate_area_overlap(
                             wake_velocities, freestream_velocities, turbine)
 
-                        # placeholder for TI/stability influence on how far wakes (and wake added TI) propagate downstream
-                        downstream_influence_length = 15 * turbine.rotor_diameter
+                        # placeholder for TI/stability influence on how far
+                        # wakes (and wake added TI) propagate downstream
+                        downstream_influence_length = 15*turbine.rotor_diameter
 
-                        if area_overlap > 0.0 and coord_ti.x1 <= downstream_influence_length + coord.x1:
+                        if area_overlap > 0.0 and coord_ti.x1 <= \
+                            downstream_influence_length + coord.x1:
                             ##### Call wake turbulence model
                             # wake.turbulence_function(inputs)
                             ti_calculation = self._compute_turbine_wake_turbulence(
