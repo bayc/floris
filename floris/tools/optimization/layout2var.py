@@ -365,14 +365,14 @@ class Layout2Var():
         plt.legend(['Old locations', 'New locations'], loc='lower center', \
             bbox_to_anchor=(0.5, 1.01), ncol=2, fontsize=fontsize)
 
-        verts = self.boundaries
-        for i in range(len(verts)):
-            if i == len(verts)-1:
-                plt.plot([verts[i][0], verts[0][0]], \
-                         [verts[i][1], verts[0][1]], 'b')        
-            else:
-                plt.plot([verts[i][0], verts[i+1][0]], \
-                         [verts[i][1], verts[i+1][1]], 'b')
+        # verts = self.boundaries
+        # for i in range(len(verts)):
+        #     if i == len(verts)-1:
+        #         plt.plot([verts[i][0], verts[0][0]], \
+        #                  [verts[i][1], verts[0][1]], 'b')        
+        #     else:
+        #         plt.plot([verts[i][0], verts[i+1][0]], \
+        #                  [verts[i][1], verts[i+1][1]], 'b')
 
         plt.show()
 
