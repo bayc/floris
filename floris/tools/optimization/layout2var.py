@@ -36,7 +36,7 @@ class Layout2Var():
         self.y = self.fi.layout_y
 
         self.thetamin = 0.
-        self.thetamax = 359.9
+        self.thetamax = 89.9
         self.theta0 = 60.
 
         self.min_dist = 2*self.rotor_diameter
