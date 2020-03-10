@@ -584,7 +584,7 @@ class FlowField():
         for coord, turbine in sorted_map:
             xloc, yloc = np.array(rx == coord.x1), np.array(ry == coord.x2)
             idx = int(np.where(np.logical_and(yloc == True, xloc == True))[0])
-            print('idx: ', idx)
+            # print('idx: ', idx)
 
             # if np.unique(self.wind_map.grid_wind_direction).size == 1:
             if ([x == self.wind_map.grid_wind_direction[0] for x in \

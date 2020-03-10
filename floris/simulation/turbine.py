@@ -163,7 +163,7 @@ class Turbine():
             if _cp.size > 1:
                 _cp = _cp[0]
             # autograd change
-            print('cp: ', _cp)
+            # print('cp: ', _cp)
             # return _cp
             return float(_cp)
 
@@ -207,7 +207,7 @@ class Turbine():
             if _ct > 1.0:
                 _ct = 0.99
             #autograd change
-            print('_ct: ', _ct)
+            # print('_ct: ', _ct)
             # return _ct
             return float(_ct)
 

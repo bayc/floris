@@ -36,24 +36,30 @@ def grad_func_layout(layout, fi):
 
 fi = wfct.floris_interface.FlorisInterface("example_input.json")
 
-# D = fi.floris.farm.flow_field.turbine_map.turbines[0].rotor_diameter
-# layout_x = [0, 0]
-# layout_y = [0, 1000]
-# fi.reinitialize_flow_field(layout_array=(layout_x, layout_y))
+D = fi.floris.farm.flow_field.turbine_map.turbines[0].rotor_diameter
+nturbs_x = 5
+nturbs_y = 5
+layout_x = [i*7*D for i in range(nturbs_x)]*nturbs_y
+layout_y = [i*7*D for i in range(nturbs_y)]
+layout_y = [[val]*nturbs_x for val in layout_y]
+print('x: ', layout_x)
+print('y: ', layout_y)
+fi.reinitialize_flow_field(layout_array=(layout_x, layout_y))
 
-yaw_angles = [5., 0.5, 0.5, 0.5]
+# yaw_angles = [0.5, 0.5, 0.5, 0.5]
+yaw_angles = [0.5]*nturbs_x*nturbs_y
 layout = [5., 5., 5., 5., 5., 5., 5., 5.]
 
 # power = fi.get_farm_power_for_yaw_angle(yaw_angles=yaw_angles)
 
 # yaw_grad = grad(fi.get_farm_power_for_yaw_angle)
 
-# yaw_grad = grad(grad_func_yaw)
-layout_grad = grad(grad_func_layout)
+yaw_grad = grad(grad_func_yaw)
+# layout_grad = grad(grad_func_layout)
 
 print('--------------------------')
 print('starting grad calculation')
 print('--------------------------')
-# print(yaw_grad(yaw_angles, fi))
-print(layout_grad(layout, fi))
+print(yaw_grad(yaw_angles, fi))
+# print(layout_grad(layout, fi))
 
