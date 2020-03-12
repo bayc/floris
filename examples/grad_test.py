@@ -22,9 +22,10 @@ def grad_func_layout(layout, fi):
 
     layout_x = layout[0:nturbs]
     layout_y = layout[nturbs:]
-    print('x: ', layout_x)
-    print('y: ', layout_y)
+    # print('x: ', layout_x)
+    # print('y: ', layout_y)
     fi.reinitialize_flow_field(layout_array=(layout_x, layout_y))
+    # print('here')
     fi.calculate_wake()
 
     # return fi.get_farm_power()
@@ -42,6 +43,7 @@ nturbs_y = 5
 layout_x = [i*7*D for i in range(nturbs_x)]*nturbs_y
 layout_y = [i*7*D for i in range(nturbs_y)]
 layout_y = [[val]*nturbs_x for val in layout_y]
+layout_y = [val for vals in layout_y for val in vals]
 print('x: ', layout_x)
 print('y: ', layout_y)
 fi.reinitialize_flow_field(layout_array=(layout_x, layout_y))
