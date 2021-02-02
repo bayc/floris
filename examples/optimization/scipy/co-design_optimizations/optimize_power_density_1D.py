@@ -34,11 +34,13 @@ fi = wfct.floris_interface.FlorisInterface(
     os.path.join(file_dir, "../../../example_input.json")
 )
 
-# Set turbine locations to 5 turbines in a line
+# Set turbine locations in a line
+nturbs = 2
 D = fi.floris.farm.turbines[0].rotor_diameter
-spacing = 9 * D
-layout_x = [0, spacing, 2 * spacing, 3 * spacing, 4 * spacing]
-layout_y = [0, 0, 0, 0, 0]
+spacing = 7 * D
+min_dist = 3 * D
+layout_x = [i * spacing for i in range(nturbs)]
+layout_y = [0 for _ in range(nturbs)]
 fi.reinitialize_flow_field(layout_array=(layout_x, layout_y))
 
 # Wind inputs
@@ -47,13 +49,24 @@ ws = [8]
 freq = [1]
 
 # Set optimization options
-opt_options = {"maxiter": 50, "disp": True, "iprint": 2, "ftol": 1e-9}
+opt_options = {"maxiter": 250, "disp": True, "iprint": 2, "ftol": 1e-7}
 
 # Compute initial AEP for optimization normalization
 AEP_initial = fi.get_farm_AEP(wd, ws, freq)
 
 # Set initial conditions for optimization (scaled between 0 and 1)
-x0 = [0.0, 0.25, 0.5, 0.75, 1.0] + [0.25, 0.0, 0.0, 0.0, 0.0]
+x0 = []
+inc = 1 / (nturbs - 1)
+
+for i in range(nturbs):
+    x1 = i * inc
+    x0.append(x1)
+
+for i in range(nturbs):
+    if i == 0:
+        x0.append(20.0)
+    else:
+        x0.append(0.0)
 
 # Instantiate the layout otpimization object
 powdens_opt = PowerDensityOptimization1D(
@@ -64,13 +77,11 @@ powdens_opt = PowerDensityOptimization1D(
     AEP_initial=AEP_initial,
     x0=x0,
     opt_options=opt_options,
+    min_dist=min_dist,
 )
 
 # Perform layout optimization
 powdens_results = powdens_opt.optimize()
-
-# print(layout_x)
-# print(powdens_results)
 
 print("=====================================================")
 print("Layout coordinates: ")
@@ -84,13 +95,28 @@ for i in range(len(powdens_results[0])):
         "{:.1f}".format(layout_y[i]),
     )
 
+print("=====================================================")
+print("Yaw angles: ")
+for i in range(len(powdens_results[0])):
+    print(
+        "Turbine", i, ": \tyaw = ", "{:.1f}".format(powdens_results[1][i]),
+    )
+
 # Calculate new AEP results
-fi.reinitialize_flow_field(layout_array=(powdens_results[0], powdens_results[1]))
+fi.reinitialize_flow_field(layout_array=(powdens_results[0], layout_y))
+fi.floris.farm.set_yaw_angles(powdens_results[1])
 AEP_optimized = fi.get_farm_AEP(wd, ws, freq)
 
 print("=====================================================")
 print("AEP Ratio = %.1f%%" % (100.0 * AEP_optimized / AEP_initial))
+print(
+    "Space Reduction = %.1f%%" % (100.0 * np.max(powdens_results[0]) / np.max(layout_x))
+)
 print("=====================================================")
+
+np.set_printoptions(precision=1)
+print("x_layout: ", np.array(powdens_results[0]))
+print("yaw: ", np.array(powdens_results[1]))
 
 # Plot the new layout vs the old layout
 powdens_opt.plot_layout_opt_results()
