@@ -76,6 +76,7 @@ class PowerDensityOptimization1D(Optimization):
                 Defaults to None.
         """
         super().__init__(fi)
+        self.max_x = self.fi.layout_x[-1]
         self.epsilon = np.finfo(float).eps
         self.counter = 0
 
@@ -99,22 +100,10 @@ class PowerDensityOptimization1D(Optimization):
         locs_unnorm = [
             self._unnorm(valx, self.bndx_min, self.bndx_max) for valx in locs
         ]
-        turb_controls = [
-            optVars[self.nturbs + i * self.nturbs : 2 * self.nturbs + i * self.nturbs]
-            for i in range(len(self.wd))
-        ]
-        turb_controls_unnorm = [
-            self._unnorm(yaw, self.yaw_min, self.yaw_max) for yaw in turb_controls
-        ]
 
         self._change_coordinates(locs_unnorm)
 
-        for i, turbine in enumerate(self.fi.floris.farm.turbine_map.turbines):
-            turbine.yaw_angle = turb_controls_unnorm[0][i]
-
         layout_dist = self._avg_dist(locs)
-        AEP_sum = self._AEP_single_wd(self.wd[0], self.ws[0])
-        # print('AEP ratio: ', AEP_sum/self.AEP_initial)
 
         return layout_dist / self.layout_dist_initial
 
@@ -135,23 +124,21 @@ class PowerDensityOptimization1D(Optimization):
         self.fi.reinitialize_flow_field(layout_array=layout_array)
 
     def _set_opt_bounds(self):
-        # self.bnds = [(0.0, 1.0) for _ in range(2*self.nturbs)]
-        self.bnds = [
-            (0.0, 0.0),
-            (0.083333, 0.25),
-            (0.166667, 0.5),
-            (0.25, 0.75),
-            (0.33333, 1.0),
-            (0.0, 1.0),
-            (0.0, 1.0),
-            (0.0, 1.0),
-            (0.0, 1.0),
-            (0.0, 1.0),
-        ]
+        self.bnds = []
+        inc = 1 / (self.nturbs - 1)
+        min_inc = self.min_dist / self.max_x
 
-    def _AEP_single_wd(self, wd, ws):
+        for i in range(self.nturbs):
+            x1 = i * min_inc
+            x2 = i * inc
+            self.bnds.append((x1, x2))
+
+        for i in range(self.nturbs):
+            self.bnds.append((0.0, 1.0))
+
+    def _AEP_single_wd(self, wd, ws, yaw):
         self.fi.reinitialize_flow_field(wind_direction=wd, wind_speed=ws)
-        self.fi.calculate_wake()
+        self.fi.calculate_wake(yaw_angles=yaw)
 
         turb_powers = [turbine.power for turbine in self.fi.floris.farm.turbines]
         return np.sum(turb_powers) * self.freq[0] * 8760
@@ -169,13 +156,12 @@ class PowerDensityOptimization1D(Optimization):
             self._unnorm(yaw, self.yaw_min, self.yaw_max) for yaw in turb_controls
         ]
 
-        for i, turbine in enumerate(self.fi.floris.farm.turbine_map.turbines):
-            turbine.yaw_angle = turb_controls_unnorm[0][i]
-
         self._change_coordinates(locs_unnorm)
 
         return (
-            self._AEP_single_wd(self.wd[0], self.ws[0]) / self.AEP_initial - 1
+            self._AEP_single_wd(self.wd[0], self.ws[0], turb_controls_unnorm[0])
+            / self.AEP_initial
+            - 1
         ) * 1000000.0
 
     def _space_constraint(self, x_in, min_dist):
@@ -198,8 +184,28 @@ class PowerDensityOptimization1D(Optimization):
             "args": (self.min_dist,),
         }
         tmp2 = {"type": "ineq", "fun": lambda x, *args: self._AEP_constraint(x)}
+        con_strs = []
+        for i in range(self.nturbs - 1):
+            con_str = (
+                "x["
+                + str(i + 1)
+                + "] - x["
+                + str(i)
+                + "] - "
+                + str(self._norm(self.min_dist, self.bndx_min, self.bndx_max))
+            )
+            con_strs.append(con_str)
 
-        self.cons = [tmp1, tmp2]
+        cons = [tmp1, tmp2]
+        for i in range(self.nturbs - 1):
+            eval_str = (
+                'cons.append({"type": "ineq", "fun": lambda x, *args: '
+                + con_strs[i]
+                + "})"
+            )
+            exec(eval_str)
+
+        self.cons = cons
 
     def _optimize(self):
         self.residual_plant = minimize(
@@ -307,7 +313,7 @@ class PowerDensityOptimization1D(Optimization):
             self.yaw_max = yaw_lims[1]
         else:
             self.yaw_min = 0.0
-            self.yaw_max = 20.0
+            self.yaw_max = 25.0
         if wd is not None:
             self.wd = wd
         if ws is not None:
@@ -326,14 +332,14 @@ class PowerDensityOptimization1D(Optimization):
                 for coord in self.fi.floris.farm.turbine_map.coords
             ] + [0.0] * self.nturbs
 
-        if bnds is not None:
-            self.bnds = bnds
-        else:
-            self._set_opt_bounds()
         if min_dist is not None:
             self.min_dist = min_dist
         else:
             self.min_dist = 2 * self.fi.floris.farm.turbines[0].rotor_diameter
+        if bnds is not None:
+            self.bnds = bnds
+        else:
+            self._set_opt_bounds()
         if opt_method is not None:
             self.opt_method = opt_method
         if opt_options is not None:
@@ -361,8 +367,8 @@ class PowerDensityOptimization1D(Optimization):
         ]
         locsy = self.fi.layout_y
 
-        plt.figure(figsize=(9, 6))
-        fontsize = 16
+        plt.figure(figsize=(4, 3))
+        fontsize = 10
         plt.plot(locsx_old, locsy_old, "ob")
         plt.plot(locsx, locsy, "or")
         # plt.title('Layout Optimization Results', fontsize=fontsize)
