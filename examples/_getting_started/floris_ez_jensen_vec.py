@@ -83,22 +83,22 @@ def jensen_model(
     c = (turbine_diameter / (2 * we * (x) + turbine_diameter)) ** 2
 
     # Calculate and apply wake mask
-    # m = we
-    # x = mesh_x_rotated - x_coord_rotated
-    # b = turbine_diameter/2.0
+    m = we
+    x = mesh_x_rotated - x_coord_rotated
+    b = turbine_diameter / 2.0
 
-    # boundary_line = m * x + b
+    boundary_line = m * x + b
 
-    # y_upper = boundary_line + y_coord_rotated #+ deflection_field
-    # y_lower = -1 * boundary_line + y_coord_rotated# + deflection_field
-    # z_upper = boundary_line + turbine_hub_height
-    # z_lower = -1 * boundary_line + turbine_hub_height
+    y_upper = boundary_line + y_coord_rotated  # + deflection_field
+    y_lower = -1 * boundary_line + y_coord_rotated  # + deflection_field
+    z_upper = boundary_line + turbine_hub_height
+    z_lower = -1 * boundary_line + turbine_hub_height
 
-    # c[mesh_x_rotated - x_coord_rotated < 0] = 0
-    # c[mesh_y_rotated > y_upper] = 0
-    # c[mesh_y_rotated < y_lower] = 0
-    # c[mesh_z > z_upper] = 0
-    # c[mesh_z < z_lower] = 0
+    c[mesh_x_rotated - x_coord_rotated < 0] = 0
+    c[mesh_y_rotated > y_upper] = 0
+    c[mesh_y_rotated < y_lower] = 0
+    c[mesh_z > z_upper] = 0
+    c[mesh_z < z_lower] = 0
 
     # Calculate the wake velocity deficits
     # u_wake = 2 * turbine_ai * c * flow_field_u_initial
@@ -122,10 +122,10 @@ turbine_radius = turbine_diameter / 2.0
 turbine_hub_height = 90.0
 turbine_ai = 1 / 3
 
-x_coord = [0.0]
-y_coord = [0.0]
+x_coord = np.array([0.0])
+y_coord = np.array([0.0])
 
-dtype = np.float32
+dtype = np.float64
 # Wind parameters
 ws = np.array([6.0] * 25, dtype=dtype)  # jklm
 wd = np.array([270.0] * 72, dtype=dtype)  # ijklm
@@ -136,19 +136,42 @@ wd = np.array([270.0] * 72, dtype=dtype)  # ijklm
 specified_wind_height = 90.0
 wind_shear = 0.12
 
+
+# ////////////////////// #
+# FULL FLOW FIELD POINTS #
+# ////////////////////// #
+# # Flow field bounds
+# xmin = np.min(x_coord) - 9.99 * turbine_diameter
+# xmax = np.max(x_coord) + 10 * turbine_diameter
+# ymin = np.min(y_coord) - 10 * turbine_diameter
+# ymax = np.max(y_coord) + 10 * turbine_diameter
+# zmin = 0.1
+# zmax = 6 * specified_wind_height
+# limits = [xmin, xmax, ymin, ymax, zmin, zmax]
+
+# # Flow field resolutions
+# resolution_x1 = 200
+# resolution_x2 = 100
+# resolution_x3 = 7
+
+
+# ///////////////// #
+# ONLY ROTOR POINTS #
+# ///////////////// #
 # Flow field bounds
-xmin = np.min(x_coord) - 9.99 * turbine_diameter
-xmax = np.max(x_coord) + 10 * turbine_diameter
-ymin = np.min(y_coord) - 10 * turbine_diameter
-ymax = np.max(y_coord) + 10 * turbine_diameter
-zmin = 0.1
-zmax = 6 * specified_wind_height
+rotor_point_width = 0.25
+xmin = x_coord[0]
+xmax = x_coord[0]
+ymin = y_coord[0] - rotor_point_width * turbine_diameter
+ymax = y_coord[0] + rotor_point_width * turbine_diameter
+zmin = turbine_hub_height - rotor_point_width * turbine_diameter
+zmax = turbine_hub_height + rotor_point_width * turbine_diameter
 limits = [xmin, xmax, ymin, ymax, zmin, zmax]
 
 # Flow field resolutions
-resolution_x1 = 200
-resolution_x2 = 100
-resolution_x3 = 7
+resolution_x1 = 1
+resolution_x2 = 5
+resolution_x3 = 5
 
 x = np.linspace(xmin, xmax, int(resolution_x1), dtype=dtype)
 y = np.linspace(ymin, ymax, int(resolution_x2), dtype=dtype)
