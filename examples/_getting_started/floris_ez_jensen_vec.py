@@ -2,7 +2,10 @@ import time
 
 import numpy as np
 import matplotlib.pyplot as plt
+from numba import njit
 from numpy import newaxis as na
+
+import riptable as rt
 
 
 def cosd(angle):
@@ -49,6 +52,7 @@ def rotate_fields(limits, mesh_x, mesh_y, wd):
     return mesh_x_rotated, mesh_y_rotated, x_coord_rotated, y_coord_rotated
 
 
+# @njit(fastmath=True)
 def jensen_model(
     flow_field_u_initial,
     u_wake,
@@ -59,7 +63,6 @@ def jensen_model(
     x_coord_rotated,
     y_coord_rotated,
     turbine_diameter,
-    deflection_field,
 ):
     # Wake expansion parameter
     we = 0.05
@@ -88,10 +91,12 @@ def jensen_model(
     # c[mesh_z < z_lower] = 0
 
     # Calculate the wake velocity deficits
-    u_wake = 2 * turbine_ai * c * flow_field_u_initial
+    # u_wake = 2 * turbine_ai * c * flow_field_u_initial
+    # print(np.transpose(c).flags)
+    # lkj
 
     # Apply the velocity deficit field to the freestream
-    return flow_field_u_initial - u_wake
+    return flow_field_u_initial - 2 * turbine_ai * c * flow_field_u_initial
 
 
 # ///// #
@@ -107,12 +112,18 @@ turbine_ai = 1 / 3
 x_coord = [0.0]
 y_coord = [0.0]
 
+dtype = np.float32
+
 # Wind parameters
-ws = np.array([6.0] * 25, dtype=np.float32)  # jklm
-wd = np.array([270.0] * 72, dtype=np.float32)  # ijklm
+ws = np.array([6.0] * 1, dtype=dtype)  # jklm
+wd = np.array([270.0] * 2, dtype=dtype)  # ijklm
 # wd = np.array([15 for i in range(100)])[:, na, na, na, na] # ijklm
-# i  j  k  l  m
-# wd ws x  y  z
+# i  j  k   l   m
+# 72 25 200 100 7
+# wd ws x   y   z
+
+# 1 25 200 100 7
+# 72 1 200 100 7
 
 specified_wind_height = 90.0
 wind_shear = 0.12
@@ -131,9 +142,9 @@ resolution_x1 = 200
 resolution_x2 = 100
 resolution_x3 = 7
 
-x = np.linspace(xmin, xmax, int(resolution_x1), dtype=np.float32)
-y = np.linspace(ymin, ymax, int(resolution_x2), dtype=np.float32)
-z = np.linspace(zmin, zmax, int(resolution_x3), dtype=np.float32)
+x = np.linspace(xmin, xmax, int(resolution_x1), dtype=dtype)
+y = np.linspace(ymin, ymax, int(resolution_x2), dtype=dtype)
+z = np.linspace(zmin, zmax, int(resolution_x3), dtype=dtype)
 
 # Flow field grid points
 mesh_x, mesh_y, mesh_z = np.meshgrid(x, y, z, indexing="ij")
@@ -151,8 +162,12 @@ mesh_x, mesh_y, mesh_z = np.meshgrid(x, y, z, indexing="ij")
 flow_field_u_initial = (
     ws[na, :, na, na, na] * (mesh_z / specified_wind_height) ** wind_shear
 )
-u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=np.float32)
-deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=np.float32)
+u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
+# deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
+
+# flow_field_u_initial = rt.FA(flow_field_u_initial)
+# u_wake = rt.FA(u_wake)
+# deflection_field = rt.FA(deflection_field)
 
 tottic = time.perf_counter()
 tic = time.perf_counter()
@@ -173,7 +188,6 @@ flow_field_u = jensen_model(
     x_coord_rotated,
     y_coord_rotated,
     turbine_diameter,
-    deflection_field,
 )
 toc = time.perf_counter()
 print(f"Computed vectorized Jensen model in {toc - tic:0.4f} seconds")
@@ -188,7 +202,7 @@ for i in range(len(wd)):
     mesh_x_rotated, mesh_y_rotated, x_coord_rotated, y_coord_rotated = rotate_fields(
         limits, mesh_x, mesh_y, wd[i]
     )
-    toc = time.perf_counter()
+    # toc = time.perf_counter()
     # print(f"Computed rotation of serial grid in {toc - tic:0.4f} seconds")
 
     # tic = time.perf_counter()
@@ -196,7 +210,6 @@ for i in range(len(wd)):
         # Initialize field values
         flow_field_u_initial = ws[j] * (mesh_z / specified_wind_height) ** wind_shear
         u_wake = np.zeros(np.shape(flow_field_u_initial))
-        deflection_field = np.zeros(np.shape(flow_field_u_initial))
 
         flow_field_u = jensen_model(
             flow_field_u_initial,
@@ -208,7 +221,6 @@ for i in range(len(wd)):
             x_coord_rotated,
             y_coord_rotated,
             turbine_diameter,
-            deflection_field,
         )
 
     # toc = time.perf_counter()
