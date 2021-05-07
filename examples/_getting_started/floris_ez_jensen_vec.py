@@ -23,6 +23,16 @@ def rotate_fields(limits, mesh_x, mesh_y, wd):
 
     # Convert from compass rose angle to cartesian angle
     angle = ((wd - 270) % 360 + 360) % 360
+    # np.ones_like()
+
+    # print(np.shape(angle))
+    # print(np.shape(mesh_x))
+    # ((np.shape(angle)[0],) + np.shape(mesh_x)[1:])
+    # mesh_x_new = np.ones((72, 1, 200, 100, 7))
+    # np.multiply(mesh_x_new, mesh_x, out=mesh_x_new)
+    # mesh_y_new = np.ones((72, 1, 200, 100, 7))
+    # np.multiply(mesh_y_new, mesh_y, out=mesh_y_new)
+    # print(np.shape(mesh_x * tmp))
 
     # Rotate grid points
     x_offset = mesh_x - x_center_of_rotation
@@ -33,6 +43,9 @@ def rotate_fields(limits, mesh_x, mesh_y, wd):
     mesh_y_rotated = (
         x_offset * sind(angle) + y_offset * cosd(angle) + y_center_of_rotation
     )
+
+    # print(np.shape(mesh_x_rotated))
+    # lkj
 
     # Rotate turbine coordinates
     x_coord_offset = x_coord - x_center_of_rotation
@@ -73,29 +86,32 @@ def jensen_model(
     c = (turbine_diameter / (2 * we * (x) + turbine_diameter)) ** 2
 
     # Calculate and apply wake mask
-    # m = we
-    # x = mesh_x_rotated - x_coord_rotated
-    # b = turbine_diameter/2.0
+    m = we
+    x = mesh_x_rotated - x_coord_rotated
+    b = turbine_diameter / 2.0
 
-    # boundary_line = m * x + b
+    boundary_line = m * x + b
 
-    # y_upper = boundary_line + y_coord_rotated #+ deflection_field
-    # y_lower = -1 * boundary_line + y_coord_rotated# + deflection_field
-    # z_upper = boundary_line + turbine_hub_height
-    # z_lower = -1 * boundary_line + turbine_hub_height
+    y_upper = boundary_line + y_coord_rotated  # + deflection_field
+    y_lower = -1 * boundary_line + y_coord_rotated  # + deflection_field
+    z_upper = boundary_line + turbine_hub_height
+    z_lower = -1 * boundary_line + turbine_hub_height
 
-    # c[mesh_x_rotated - x_coord_rotated < 0] = 0
-    # c[mesh_y_rotated > y_upper] = 0
-    # c[mesh_y_rotated < y_lower] = 0
-    # c[mesh_z > z_upper] = 0
-    # c[mesh_z < z_lower] = 0
+    c[mesh_x_rotated - x_coord_rotated < 0] = 0
+    c[mesh_y_rotated > y_upper] = 0
+    c[mesh_y_rotated < y_lower] = 0
+    c[mesh_z > z_upper] = 0
+    c[mesh_z < z_lower] = 0
 
     # Calculate the wake velocity deficits
     # u_wake = 2 * turbine_ai * c * flow_field_u_initial
-    # print(np.transpose(c).flags)
+
+    # print(np.shape(c))
+    # print(np.shape(flow_field_u_initial))
     # lkj
 
     # Apply the velocity deficit field to the freestream
+    # return flow_field_u_initial - u_wake
     return flow_field_u_initial - 2 * turbine_ai * c * flow_field_u_initial
 
 
@@ -109,14 +125,13 @@ turbine_radius = turbine_diameter / 2.0
 turbine_hub_height = 90.0
 turbine_ai = 1 / 3
 
-x_coord = [0.0]
-y_coord = [0.0]
+x_coord = np.array([0.0])
+y_coord = np.array([0.0])
 
-dtype = np.float32
-
+dtype = np.float64
 # Wind parameters
-ws = np.array([6.0] * 1, dtype=dtype)  # jklm
-wd = np.array([270.0] * 2, dtype=dtype)  # ijklm
+ws = np.array([6.0] * 25, dtype=dtype)  # jklm
+wd = np.array([270.0] * 72, dtype=dtype)  # ijklm
 # wd = np.array([15 for i in range(100)])[:, na, na, na, na] # ijklm
 # i  j  k   l   m
 # 72 25 200 100 7
@@ -128,19 +143,42 @@ wd = np.array([270.0] * 2, dtype=dtype)  # ijklm
 specified_wind_height = 90.0
 wind_shear = 0.12
 
+
+# ////////////////////// #
+# FULL FLOW FIELD POINTS #
+# ////////////////////// #
+# # Flow field bounds
+# xmin = np.min(x_coord) - 9.99 * turbine_diameter
+# xmax = np.max(x_coord) + 10 * turbine_diameter
+# ymin = np.min(y_coord) - 10 * turbine_diameter
+# ymax = np.max(y_coord) + 10 * turbine_diameter
+# zmin = 0.1
+# zmax = 6 * specified_wind_height
+# limits = [xmin, xmax, ymin, ymax, zmin, zmax]
+
+# # Flow field resolutions
+# resolution_x1 = 200
+# resolution_x2 = 100
+# resolution_x3 = 7
+
+
+# ///////////////// #
+# ONLY ROTOR POINTS #
+# ///////////////// #
 # Flow field bounds
-xmin = np.min(x_coord) - 9.99 * turbine_diameter
-xmax = np.max(x_coord) + 10 * turbine_diameter
-ymin = np.min(y_coord) - 10 * turbine_diameter
-ymax = np.max(y_coord) + 10 * turbine_diameter
-zmin = 0.1
-zmax = 6 * specified_wind_height
+rotor_point_width = 0.25
+xmin = x_coord[0]
+xmax = x_coord[0]
+ymin = y_coord[0] - rotor_point_width * turbine_diameter
+ymax = y_coord[0] + rotor_point_width * turbine_diameter
+zmin = turbine_hub_height - rotor_point_width * turbine_diameter
+zmax = turbine_hub_height + rotor_point_width * turbine_diameter
 limits = [xmin, xmax, ymin, ymax, zmin, zmax]
 
 # Flow field resolutions
-resolution_x1 = 200
-resolution_x2 = 100
-resolution_x3 = 7
+resolution_x1 = 1
+resolution_x2 = 5
+resolution_x3 = 5
 
 x = np.linspace(xmin, xmax, int(resolution_x1), dtype=dtype)
 y = np.linspace(ymin, ymax, int(resolution_x2), dtype=dtype)
@@ -149,9 +187,9 @@ z = np.linspace(zmin, zmax, int(resolution_x3), dtype=dtype)
 # Flow field grid points
 mesh_x, mesh_y, mesh_z = np.meshgrid(x, y, z, indexing="ij")
 
-# mesh_x = mesh_x[na, na, :, :, :]
-# mesh_y = mesh_y[na, na, :, :, :]
-# mesh_z = mesh_z[na, na, :, :, :]
+mesh_x = mesh_x[na, na, na, :, :, :]  # * np.ones((72, 1, 200, 100, 7))
+mesh_y = mesh_y[na, na, na, :, :, :]  # * np.ones((72, 1, 200, 100, 7))
+mesh_z = mesh_z[na, na, na, :, :, :]  # * np.ones((72, 1, 200, 100, 7))
 
 # ///////////////// #
 # JENSEN WAKE MODEL #
@@ -160,22 +198,21 @@ mesh_x, mesh_y, mesh_z = np.meshgrid(x, y, z, indexing="ij")
 # VECTORIZED CALLS
 # Initialize field values
 flow_field_u_initial = (
-    ws[na, :, na, na, na] * (mesh_z / specified_wind_height) ** wind_shear
+    ws[na, na, :, na, na, na] * (mesh_z / specified_wind_height) ** wind_shear
 )
 u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
-# deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
-
-# flow_field_u_initial = rt.FA(flow_field_u_initial)
-# u_wake = rt.FA(u_wake)
-# deflection_field = rt.FA(deflection_field)
+deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 
 tottic = time.perf_counter()
 tic = time.perf_counter()
 mesh_x_rotated, mesh_y_rotated, x_coord_rotated, y_coord_rotated = rotate_fields(
-    limits, mesh_x, mesh_y, wd[:, na, na, na, na]
+    limits, mesh_x, mesh_y, wd[na, :, na, na, na, na]
 )
 toc = time.perf_counter()
 print(f"Computed rotation of vectorized grids in {toc - tic:0.4f} seconds")
+
+# print(np.shape(mesh_x_rotated))
+# lkj
 
 tic = time.perf_counter()
 flow_field_u = jensen_model(
