@@ -1,11 +1,12 @@
 import time
 
+import numpy as np
 import matplotlib.pyplot as plt
 from numpy import newaxis as na
 
-# import numpy as np
-import jax.numpy as np
-from jax import grad
+
+# import jax.numpy as np
+# from jax import grad
 
 
 def cosd(angle):
@@ -62,6 +63,17 @@ def rotate_fields(limits, mesh_x, mesh_y, wd, x_coord, y_coord):
     )
 
     # Return rotated values
+    # print(np.shape(mesh_x_rotated))
+    # print(np.shape(x_coord_rotated))
+    # print(np.shape(y_coord_rotated))
+    x_coord_rotated = np.squeeze(x_coord_rotated, axis=(3, 4))[:, :, :, :, na, na]
+    y_coord_rotated = np.squeeze(y_coord_rotated, axis=(3, 4))[:, :, :, :, na, na]
+    # print(np.shape(x_coord_rotated))
+    # print(np.shape(y_coord_rotated))
+    # print(x_coord)
+    # print(x_coord_offset)
+    # print(np.shape(wd))
+    # ljk
     return mesh_x_rotated, mesh_y_rotated, x_coord_rotated, y_coord_rotated
 
 
@@ -128,6 +140,11 @@ def jensen_model_masked(
     x = mesh_x_rotated - x_coord_rotated
     b = turbine_diameter / 2.0
 
+    # print(mesh_x_rotated)
+    # print(x_coord_rotated)
+    # print(x)
+    # print(np.array(mesh_x_rotated - x_coord_rotated < 0))
+
     boundary_line = m * x + b
 
     y_upper = boundary_line + y_coord_rotated  # + deflection_field
@@ -163,9 +180,12 @@ def jensen_model_masked(
     # c[mesh_y_rotated < y_lower] = 0
     # c[mesh_z > z_upper] = 0
     # c[mesh_z < z_lower] = 0
+    # print((flow_field_u_initial - u_wake) - 2 * turbine_ai * c * (flow_field_u_initial - u_wake))
+    # lkj
 
     # Calculate the wake velocity deficits and apply to the freestream
-    return flow_field_u_initial - 2 * turbine_ai * c * flow_field_u_initial
+    # return (flow_field_u_initial - u_wake) - 2 * turbine_ai * c * (flow_field_u_initial - u_wake)
+    return 2 * turbine_ai * c * (flow_field_u_initial - u_wake)
 
 
 # ///// #
@@ -185,8 +205,10 @@ dtype = np.float64
 # Wind parameters
 # ws = np.array([6.0] * 25, dtype=dtype)  # jklm
 # wd = np.array([270.0] * 72, dtype=dtype)  # ijklm
-ws = np.arange(3.0, 26.0, 1.0, dtype=dtype)
-wd = np.arange(0.0, 360.0, 5.0, dtype=dtype)
+# ws = np.arange(3.0, 26.0, 1.0, dtype=dtype)
+# wd = np.arange(0.0, 360.0, 5.0, dtype=dtype)
+ws = np.array([8.0])
+wd = np.array([270.0])
 # wd = np.array([15 for i in range(100)])[:, na, na, na, na] # ijklm
 # i  j  k  l  m
 # wd ws x  y  z
@@ -230,7 +252,7 @@ def initialize_flow_field(
     limits = [xmin, xmax, ymin, ymax, zmin, zmax]
 
     # Flow field resolutions
-    resolution_x1 = 1
+    resolution_x1 = len(x_coord)
     resolution_x2 = 5
     resolution_x3 = 5
 
@@ -332,6 +354,7 @@ def calculate_power(
 
 u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
+turb_inflow_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 
 # tottic = time.perf_counter()
 # tic = time.perf_counter()
@@ -366,24 +389,36 @@ tic = time.perf_counter()
 #     deflection_field,
 # )
 
-
+ff_u = []
 for i in range(len(x_coord)):
-    flow_field_u_masked = jensen_model_masked(
+    # print(np.shape(flow_field_u_initial))
+    # lkj
+
+    turb_u_wake = jensen_model_masked(
         flow_field_u_initial,
         u_wake,
         turbine_ai,
         mesh_x_rotated,
         mesh_y_rotated,
         mesh_z,
-        x_coord_rotated,
-        y_coord_rotated,
+        x_coord_rotated[:, :, :, i, :, :],
+        y_coord_rotated[:, :, :, i, :, :],
         turbine_diameter,
         deflection_field,
     )
+
+    print("##################### i: ", i)
+    print(turb_u_wake)
+
+    u_wake = np.sqrt(u_wake ** 2 + turb_u_wake ** 2)
+    ff_u.append(u_wake)
 toc = time.perf_counter()
 print(f"Computed vectorized Jensen masked model in {toc - tic:0.4f} seconds")
 
-print(np.unique(np.mean(flow_field_u_masked, axis=(4, 5))))
+# print(np.unique(np.mean(flow_field_u_masked, axis=(4, 5))))
+
+# print(ff_u)
+print(u_wake)
 # /////////////// #
 # COMPARE METHODS #
 # /////////////// #
