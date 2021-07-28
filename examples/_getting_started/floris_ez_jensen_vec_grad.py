@@ -163,7 +163,7 @@ def jensen_model_masked(
     #     * np.logical_not(np.array(mesh_z < z_lower))
     c = (
         (turbine_diameter / (2 * we * (x) + turbine_diameter)) ** 2
-        * ~(np.array(mesh_x_rotated - x_coord_rotated < 0))
+        * ~(np.array(mesh_x_rotated - x_coord_rotated < 0.1))
         * ~(np.array(mesh_y_rotated > y_upper))
         * ~(np.array(mesh_y_rotated < y_lower))
         * ~(np.array(mesh_z > z_upper))

@@ -49,6 +49,7 @@ REQUIRED = [
     "pyproj>=2.1",
     "seaborn>=0.9",
     "sklearn>=0.0",
+    "shapely>=1.7.1",
 ]
 
 # What packages are optional?
@@ -75,7 +76,7 @@ except FileNotFoundError:
 
 # Load the package's VERSION module
 ROOT = Path(__file__).parent
-with open(ROOT / "VERSION") as version_file:
+with open(ROOT / "floris" / "VERSION") as version_file:
     VERSION = version_file.read().strip()
 
 setup(
