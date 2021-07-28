@@ -180,6 +180,37 @@ def rotate_fields(mesh_x, mesh_y, mesh_z, wd, x_coord, y_coord, z_coord):
     )
 
 
+def jimenez_model(yaw_angle, Ct, x_coord, mesh_x, rotor_diameter):
+    kd = 0.05
+    ad = 0.0
+    bd = 0.0
+
+    # angle of deflection
+    xi_init = cosd(yaw_angle) * sind(yaw_angle) * Ct / 2.0
+
+    x_locations = mesh_x - x_coord[:, :, :, na, :, :]
+
+    # yaw displacement
+    yYaw_init = (
+        xi_init
+        * (15 * (2 * kd * x_locations / rotor_diameter + 1) ** 4.0 + xi_init ** 2.0)
+        / (
+            (30 * kd / rotor_diameter)
+            * (2 * kd * x_locations / rotor_diameter + 1) ** 5.0
+        )
+    ) - (xi_init * rotor_diameter * (15 + xi_init ** 2.0) / (30 * kd))
+
+    # corrected yaw displacement with lateral offset
+    deflection = yYaw_init + ad + bd * x_locations
+
+    x = np.unique(x_locations)
+    for i in range(len(x)):
+        tmp = np.max(deflection[x_locations == x[i]])
+        deflection[x_locations == x[i]] = tmp
+
+    return deflection
+
+
 def jensen_model_masked(
     flow_field_u_initial,
     u_wake,
@@ -305,13 +336,22 @@ def initialize_flow_field(
 
     pt = rloc * turbine_radius
 
-    yt = np.linspace(x2 - pt, x2 + pt, y_ngrid,)
-    zt = np.linspace(x3 - pt, x3 + pt, z_ngrid,)
+    yt = np.linspace(
+        x2 - pt,
+        x2 + pt,
+        y_ngrid,
+    )
+    zt = np.linspace(
+        x3 - pt,
+        x3 + pt,
+        z_ngrid,
+    )
 
     x_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * x_coord[:, na, na]
     y_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * yt.T[:, :, na]
     z_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * zt.T[:, na, :]
 
+    # yaw turbines to be perpendicular to the wind direction
     x_grid, y_grid = update_grid(x_grid, y_grid, angle[na, :, na, na, na, na], x1, x2)
 
     mesh_x = x_grid
@@ -322,6 +362,7 @@ def initialize_flow_field(
         ws[na, na, :, na, na, na] * (mesh_z / specified_wind_height) ** wind_shear
     ) * np.ones((1, len(wd), 1, 1, 1, 1))
 
+    # rotate turbine locations/fields to be perpendicular to wind direction
     (
         mesh_x_rotated,
         mesh_y_rotated,
@@ -377,8 +418,12 @@ def initialize_flow_field(
 )
 
 u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
-deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
+# deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 turb_inflow_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
+
+yaw_angle = np.ones_like(x_coord_rotated) * 20
+# print(np.shape(yaw_angle))
+# lkj
 
 tic = time.perf_counter()
 
@@ -388,7 +433,19 @@ for i in range(len(x_coord)):
     ]
 
     turb_avg_vels = turbine_avg_velocity(turb_inflow_field)
-    turb_aIs = aI(Ct(turb_avg_vels))
+    turb_Cts = Ct(turb_avg_vels)
+    turb_aIs = aI(turb_Cts)
+
+    deflection_field = jimenez_model(
+        yaw_angle,
+        turb_Cts[:, :, :, i],
+        x_coord_rotated[:, :, :, i, :, :],
+        mesh_x_rotated,
+        turbine_diameter,
+    )
+    # print(np.shape(deflection_field))
+    print(deflection_field)
+    # lkj
 
     turb_u_wake = jensen_model_masked(
         flow_field_u_initial,
@@ -405,8 +462,8 @@ for i in range(len(x_coord)):
     )
 
     print("##################### i: ", i)
-    print(np.shape(turb_u_wake))
-    print("vec turb_u_wake: ", turb_u_wake)
+    # print(np.shape(turb_u_wake))
+    # print("vec turb_u_wake: ", turb_u_wake)
 
     u_wake = np.sqrt((u_wake ** 2) + (turb_u_wake ** 2))
 
@@ -416,11 +473,11 @@ toc = time.perf_counter()
 # COMPARE METHODS #
 # /////////////// #
 
-vel_diff = flow_field_u_initial - u_wake
+flow_field_u = flow_field_u_initial - u_wake
 print(
     "vec u: ",
     np.take_along_axis(
-        np.take_along_axis(vel_diff, inds_sorted, axis=3), inds_unsorted, axis=3
+        np.take_along_axis(flow_field_u, inds_sorted, axis=3), inds_unsorted, axis=3
     ),
 )
 print("vec shape of u: ", np.shape(flow_field_u_initial - u_wake))
