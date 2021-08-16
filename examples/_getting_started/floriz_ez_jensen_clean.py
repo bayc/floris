@@ -188,7 +188,7 @@ def jimenez_model(yaw_angle, Ct, x_coord, mesh_x, rotor_diameter):
     # angle of deflection
     xi_init = cosd(yaw_angle) * sind(yaw_angle) * Ct / 2.0
 
-    x_locations = mesh_x - x_coord[:, :, :, na, :, :]
+    x_locations = mesh_x - x_coord
 
     # yaw displacement
     yYaw_init = (
@@ -228,29 +228,47 @@ def jensen_model_masked(
     we = 0.05
 
     m = we
-    x = mesh_x_rotated - x_coord_rotated[:, :, :, na, :, :]
+    x = mesh_x_rotated - x_coord_rotated
     b = turbine_diameter / 2.0
 
     boundary_line = m * x + b
 
-    y_center = (
-        np.zeros_like(boundary_line)
-        + y_coord_rotated[:, :, :, na, :, :]
-        + deflection_field
-    )
+    y_center = np.zeros_like(boundary_line) + y_coord_rotated + deflection_field
+    # print(y_center)
+    # lkj
     z_center = np.zeros_like(boundary_line) + turbine_hub_height
 
     # Calculate the wake velocity deficit ratios
     c = (
         (turbine_diameter / (2 * we * (x) + turbine_diameter)) ** 2
-        * ~(np.array(mesh_x_rotated - x_coord_rotated[:, :, :, na, :, :] < 0.0))
+        * ~(np.array(mesh_x_rotated - x_coord_rotated < 0.0))
         * ~(
             ((mesh_y_rotated - y_center) ** 2 + (mesh_z - z_center) ** 2)
             > (boundary_line ** 2)
         )
     )
 
-    return 2 * turbine_ai[:, :, :, na, na, na] * c * (flow_field_u_initial)
+    return 2 * turbine_ai * c * (flow_field_u_initial)
+
+
+def crespo_hernandez(
+    ambient_TI, x_coord_upstream, x_coord_downstream, rotor_diameter, aI
+):
+    ti_initial = 0.1
+    ti_constant = 0.5
+    ti_ai = 0.8
+    ti_downstream = -0.32
+
+    # turbulence intensity calculation based on Crespo et. al.
+    ti_calculation = (
+        ti_constant
+        * aI ** ti_ai
+        * ambient_TI ** ti_initial
+        * ((x_coord_downstream - x_coord_upstream) / rotor_diameter) ** ti_downstream
+    )
+
+    # Update turbulence intensity of downstream turbines
+    return ti_calculation
 
 
 def turbine_avg_velocity(turb_inflow_vel):
@@ -336,22 +354,17 @@ def initialize_flow_field(
 
     pt = rloc * turbine_radius
 
-    yt = np.linspace(
-        x2 - pt,
-        x2 + pt,
-        y_ngrid,
-    )
-    zt = np.linspace(
-        x3 - pt,
-        x3 + pt,
-        z_ngrid,
-    )
+    # TODO: would it be simpler to create rotor points inherently rotated to be
+    # perpendicular to the wind
+    yt = np.linspace(x2 - pt, x2 + pt, y_ngrid,)
+    zt = np.linspace(x3 - pt, x3 + pt, z_ngrid,)
 
     x_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * x_coord[:, na, na]
     y_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * yt.T[:, :, na]
     z_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * zt.T[:, na, :]
 
     # yaw turbines to be perpendicular to the wind direction
+    # TODO: update update_grid to be called something better
     x_grid, y_grid = update_grid(x_grid, y_grid, angle[na, :, na, na, na, na], x1, x2)
 
     mesh_x = x_grid
@@ -421,7 +434,9 @@ u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 # deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 turb_inflow_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 
-yaw_angle = np.ones_like(x_coord_rotated) * 20
+turb_TIs = np.ones_like(x_coord_rotated) * 0.06
+yaw_angle = np.ones_like(x_coord_rotated) * 00
+# print(yaw_angle)
 # print(np.shape(yaw_angle))
 # lkj
 
@@ -439,23 +454,23 @@ for i in range(len(x_coord)):
     deflection_field = jimenez_model(
         yaw_angle,
         turb_Cts[:, :, :, i],
-        x_coord_rotated[:, :, :, i, :, :],
+        x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         mesh_x_rotated,
         turbine_diameter,
     )
     # print(np.shape(deflection_field))
-    print(deflection_field)
+    # print(deflection_field)
     # lkj
 
     turb_u_wake = jensen_model_masked(
         flow_field_u_initial,
         u_wake,
-        turb_aIs[:, :, :, i],
+        turb_aIs[:, :, :, i][:, :, :, na, na, na],
         mesh_x_rotated,
         mesh_y_rotated,
         mesh_z,
-        x_coord_rotated[:, :, :, i, :, :],
-        y_coord_rotated[:, :, :, i, :, :],
+        x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
+        y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         turbine_diameter,
         turbine_hub_height,
         deflection_field,
