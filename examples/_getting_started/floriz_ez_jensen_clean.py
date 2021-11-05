@@ -297,9 +297,10 @@ turbine_diameter = 126.0
 turbine_radius = turbine_diameter / 2.0
 turbine_hub_height = 90.0
 
-x_coord = np.array([0.0, 5 * 126.0])  # , 0*126.0])
-y_coord = np.array([0.0, 0 * 126.0])  # , 5*126.0])
-z_coord = np.array([90.0, 90.0])  # , 90.0])
+x_spc = 5 * 126.0
+x_coord = np.array([0.0, x_spc, 2 * x_spc])  # , 3*x_spc, 4*x_spc])  # , 0*126.0])
+y_coord = np.array([0.0, 0.0, 0.0])  # , 0.0, 0.0])  # , 5*126.0])
+z_coord = np.array([90.0] * len(x_coord))  # , 90.0])
 
 y_ngrid = 5
 z_ngrid = 5
@@ -307,7 +308,7 @@ rloc = 0.5
 
 dtype = np.float64
 # Wind parameters
-ws = np.array([8.0])
+ws = np.array([9.0, 8.0])
 wd = np.array([270.0])
 # i  j  k  l  m
 # wd ws x  y  z
@@ -435,25 +436,30 @@ u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 turb_inflow_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 
 turb_TIs = np.ones_like(x_coord_rotated) * 0.06
-yaw_angle = np.ones_like(x_coord_rotated) * 00
+yaw_angle = np.ones_like(x_coord_rotated) * 0.0
+# yaw_angle[:, :, :, 0, :, :] = 5.0
 # print(yaw_angle)
-# print(np.shape(yaw_angle))
-# lkj
 
 tic = time.perf_counter()
 
 for i in range(len(x_coord)):
-    turb_inflow_field[:, :, :, i, :, :] = (flow_field_u_initial - u_wake)[
-        :, :, :, i, :, :
-    ]
+    # turb_inflow_field[:, :, :, i, :, :] = (flow_field_u_initial - u_wake)[
+    #     :, :, :, i, :, :
+    # ]
+    turb_inflow_field = turb_inflow_field * np.array(
+        mesh_x_rotated != x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
+    ) + (flow_field_u_initial - u_wake) * np.array(
+        mesh_x_rotated == x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
+    )
+    # turb_inflow_field = flow_field_u_initial - u_wake
 
     turb_avg_vels = turbine_avg_velocity(turb_inflow_field)
     turb_Cts = Ct(turb_avg_vels)
     turb_aIs = aI(turb_Cts)
 
     deflection_field = jimenez_model(
-        yaw_angle,
-        turb_Cts[:, :, :, i],
+        yaw_angle[:, :, :, i, :, :][:, :, :, na, :, :],
+        turb_Cts[:, :, :, i][:, :, :, na, na, na],
         x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         mesh_x_rotated,
         turbine_diameter,
@@ -476,8 +482,12 @@ for i in range(len(x_coord)):
         deflection_field,
     )
 
+    # crespo_hernandez(
+    #     ambient_TI, x_coord_upstream, x_coord_downstream, rotor_diameter, aI
+    # )
+
     print("##################### i: ", i)
-    # print(np.shape(turb_u_wake))
+    print(turb_u_wake)
     # print("vec turb_u_wake: ", turb_u_wake)
 
     u_wake = np.sqrt((u_wake ** 2) + (turb_u_wake ** 2))
@@ -488,15 +498,15 @@ toc = time.perf_counter()
 # COMPARE METHODS #
 # /////////////// #
 
-flow_field_u = flow_field_u_initial - u_wake
-print(
-    "vec u: ",
-    np.take_along_axis(
-        np.take_along_axis(flow_field_u, inds_sorted, axis=3), inds_unsorted, axis=3
-    ),
-)
-print("vec shape of u: ", np.shape(flow_field_u_initial - u_wake))
-print("Turbine avg vels: ", turbine_avg_velocity(turb_inflow_field))
+# flow_field_u = flow_field_u_initial - u_wake
+# print(
+#     "vec u: ",
+#     np.take_along_axis(
+#         np.take_along_axis(flow_field_u, inds_sorted, axis=3), inds_unsorted, axis=3
+#     ),
+# )
+# print("vec shape of u: ", np.shape(flow_field_u_initial - u_wake))
+# print("Turbine avg vels: ", turbine_avg_velocity(turb_inflow_field))
 
 # //////////////// #
 # COMPUTE GRADIENT #
