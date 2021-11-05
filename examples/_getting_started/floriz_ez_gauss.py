@@ -1,17 +1,8 @@
-import copy
-import time
-
 import numpy as np
-import matplotlib.pyplot as plt
 from numpy import newaxis as na
 from scipy.interpolate import interp1d
-from numpy.lib.function_base import meshgrid
-
-import floris.tools as wfct
 
 
-# import jax.numpy as np
-# from jax import grad
 thrust = [
     1.19187945,
     1.17284634,
@@ -128,8 +119,8 @@ def tand(angle):
 
 def rotate_fields(mesh_x, mesh_y, mesh_z, wd, x_coord, y_coord, z_coord):
     # Find center of rotation
-    x_center_of_rotation = np.mean([np.min(mesh_x), np.max(mesh_x)])
-    y_center_of_rotation = np.mean([np.min(mesh_y), np.max(mesh_y)])
+    x_center_of_rotation = np.mean(np.array([np.min(mesh_x), np.max(mesh_x)]))
+    y_center_of_rotation = np.mean(np.array([np.min(mesh_y), np.max(mesh_y)]))
 
     # Convert from compass rose angle to cartesian angle
     angle = ((wd - 270) % 360 + 360) % 360
@@ -186,77 +177,6 @@ def rotate_fields(mesh_x, mesh_y, mesh_z, wd, x_coord, y_coord, z_coord):
     )
 
 
-def jimenez_model(yaw_angle, Ct, x_coord, mesh_x, rotor_diameter):
-    kd = 0.05
-    ad = 0.0
-    bd = 0.0
-
-    # angle of deflection
-    xi_init = cosd(yaw_angle) * sind(yaw_angle) * Ct / 2.0
-
-    x_locations = mesh_x - x_coord
-
-    # yaw displacement
-    yYaw_init = (
-        xi_init
-        * (15 * (2 * kd * x_locations / rotor_diameter + 1) ** 4.0 + xi_init ** 2.0)
-        / (
-            (30 * kd / rotor_diameter)
-            * (2 * kd * x_locations / rotor_diameter + 1) ** 5.0
-        )
-    ) - (xi_init * rotor_diameter * (15 + xi_init ** 2.0) / (30 * kd))
-
-    # corrected yaw displacement with lateral offset
-    deflection = yYaw_init + ad + bd * x_locations
-
-    x = np.unique(x_locations)
-    for i in range(len(x)):
-        tmp = np.max(deflection[x_locations == x[i]])
-        deflection[x_locations == x[i]] = tmp
-
-    return deflection
-
-
-def jensen_model_masked(
-    flow_field_u_initial,
-    u_wake,
-    turbine_ai,
-    mesh_x_rotated,
-    mesh_y_rotated,
-    mesh_z,
-    x_coord_rotated,
-    y_coord_rotated,
-    turbine_diameter,
-    turbine_hub_height,
-    deflection_field,
-):
-    # Wake expansion parameter
-    we = 0.05
-
-    m = we
-    x = mesh_x_rotated - x_coord_rotated
-    b = turbine_diameter / 2.0
-
-    boundary_line = m * x + b
-
-    y_center = np.zeros_like(boundary_line) + y_coord_rotated + deflection_field
-    # print(y_center)
-    # lkj
-    z_center = np.zeros_like(boundary_line) + turbine_hub_height
-
-    # Calculate the wake velocity deficit ratios
-    c = (
-        (turbine_diameter / (2 * we * (x) + turbine_diameter)) ** 2
-        * ~(np.array(mesh_x_rotated - x_coord_rotated < 0.0))
-        * ~(
-            ((mesh_y_rotated - y_center) ** 2 + (mesh_z - z_center) ** 2)
-            > (boundary_line ** 2)
-        )
-    )
-
-    return 2 * turbine_ai * c * (flow_field_u_initial)
-
-
 def TKE_to_TI(turbulence_kinetic_energy, turb_avg_vels):
     total_turbulence_intensity = (
         np.sqrt((2 / 3) * turbulence_kinetic_energy)
@@ -265,21 +185,9 @@ def TKE_to_TI(turbulence_kinetic_energy, turb_avg_vels):
 
 
 def yaw_added_turbulence_mixing(
-    x_coord_rotated,
-    y_coord_rotated,
-    turb_avg_vels,
-    turbine_ti,
-    turbine_diameter,
-    flow_field_v,
-    flow_field_w,
-    turb_v,
-    turb_w,
-    mesh_x_rotated,
-    mesh_y_rotated,
+    turb_avg_vels, turbine_ti, flow_field_v, flow_field_w, turb_v, turb_w,
 ):
     # calculate fluctuations
-    # print('mean of turb_v: ', np.mean(turb_v))
-    # print('mean of turb_w: ', np.mean(turb_w))
     v_prime = flow_field_v + turb_v
     w_prime = flow_field_w + turb_w
 
@@ -289,12 +197,10 @@ def yaw_added_turbulence_mixing(
     u_prime = np.sqrt(2 * TKE)
 
     # compute the new TKE
-    idx = np.where(
-        (np.abs(mesh_x_rotated - x_coord_rotated) <= turbine_diameter / 4)
-        & (np.abs(mesh_y_rotated - y_coord_rotated) < turbine_diameter)
-    )
     TKE = (1 / 2) * (
-        u_prime ** 2 + np.mean(v_prime[idx]) ** 2 + np.mean(w_prime[idx]) ** 2
+        u_prime ** 2
+        + np.mean(v_prime, axis=(4, 5))[:, :, :, :, na, na] ** 2
+        + np.mean(w_prime, axis=(4, 5))[:, :, :, :, na, na] ** 2
     )
 
     # convert TKE back to TI
@@ -312,7 +218,6 @@ def calc_VW(
     wind_shear,
     specified_wind_height,
     turb_avg_vels,
-    turbine_ti,
     turbine_Ct,
     turbine_aI,
     turbine_TSR,
@@ -320,7 +225,6 @@ def calc_VW(
     turbine_hub_height,
     turbine_diameter,
     flow_field_u_initial,
-    flow_field,
     x_locations,
     y_locations,
     z_locations,
@@ -335,8 +239,7 @@ def calc_VW(
     aI = turbine_aI
 
     # flow parameters
-    # Uinf = np.mean(flow_field_u_initial)
-    Uinf = np.mean(flow_field_u_initial, axis=(4, 5))[:, :, :, :, na, na]
+    Uinf = np.mean(flow_field_u_initial, axis=(3, 4, 5))[:, :, :, na, na, na]
 
     scale = 1.0
     vel_top = (Uinf * ((HH + D / 2) / specified_wind_height) ** wind_shear) / Uinf
@@ -346,33 +249,17 @@ def calc_VW(
         -scale * (np.pi / 8) * D * vel_bottom * Uinf * Ct * sind(yaw) * cosd(yaw)
     )
     Gamma_wake_rotation = 0.25 * 2 * np.pi * D * (aI - aI ** 2) * turb_avg_vels / TSR
-    # print('vel_top', np.mean(vel_top))
-    # print('vel_bottom', np.mean(vel_bottom))
-    # print('Gamma_top', np.mean(Gamma_top))
-    # print('Gamma_bottom', np.mean(Gamma_bottom))
-    # print('Gamma_wake_rotation', np.mean(Gamma_wake_rotation))
 
     # compute the spanwise and vertical velocities induced by yaw
     eps = eps_gain * D  # Use set value
-    # print('eps: ', eps)
 
     # decay the vortices as they move downstream - using mixing length
     lmda = D / 8
     kappa = 0.41
     lm = kappa * z_locations / (1 + kappa * z_locations / lmda)
     z = np.linspace(z_locations.min(), z_locations.max(), flow_field_u_initial.shape[5])
-    # print(np.shape(flow_field_u_initial))
-    # print(np.shape(z))
     dudz_initial = np.gradient(flow_field_u_initial, z, axis=5)
-    # print(np.shape(dudz_initial))
     nu = lm ** 2 * np.abs(dudz_initial[:, :, :, 0, :, :][:, :, :, na, :, :])
-    # print(np.shape(nu))
-    # print(nu)
-    # lkj
-    # print('dudz_initial: ', np.mean(dudz_initial))
-    # print('nu: ', np.mean(nu))
-    # print('lm: ', np.mean(lm))
-    # print('z: ', np.mean(z))
 
     # top vortex
     yLocs = y_locations + 0.01 - (y_coord_rotated)
@@ -462,14 +349,6 @@ def calc_VW(
         * eps ** 2
         / (4 * nu * (x_locations - x_coord_rotated) / Uinf + eps ** 2)
     )
-    # print('zC: ', np.mean(zC))
-    # print('rC: ', np.mean(rC))
-    # print('Gamma_wake_rotation: ', np.mean(Gamma_wake_rotation))
-    # print('eps: ', np.mean(eps))
-    # print('nu: ', np.mean(nu))
-    # print('x_locations: ', np.mean(x_locations))
-    # print('x_coord_rotated: ', np.mean(x_coord_rotated))
-    # print('Uinf: ', np.mean(Uinf))
 
     W5 = (
         (-yLocs * Gamma_wake_rotation)
@@ -503,45 +382,9 @@ def calc_VW(
     V = V1 + V2 + V3 + V4 + V5 + V6
     W = W1 + W2 + W3 + W4 + W5 + W6
 
-    # print('V1 in: ', np.mean(V1))
-    # print('V2 in: ', np.mean(V2))
-    # print('V3 in: ', np.mean(V3))
-    # print('V4 in: ', np.mean(V4))
-    # print('V5 in: ', np.mean(V5))
-    # print('V6 in: ', np.mean(V6))
-
-    # print('W1 in: ', np.mean(W1))
-    # print('W2 in: ', np.mean(W2))
-    # print('W3 in: ', np.mean(W3))
-    # print('W4 in: ', np.mean(W4))
-    # print('W5 in: ', np.mean(W5))
-    # print('W6 in: ', np.mean(W6))
-
-    # print('V in: ', np.mean(V))
-    # print('W in: ', np.mean(W))
-
     V = V * np.array(x_locations >= x_coord_rotated - 1)
     W = W * np.array(x_locations >= x_coord_rotated - 1)
-
-    # no spanwise and vertical velocity upstream of the turbine
-    # V[
-    #     x_locations < x_coord_rotated - 1
-    # ] = 0.0  # Subtract by 1 to avoid numerical issues on rotation
-    # W[
-    #     x_locations < x_coord_rotated - 1
-    # ] = 0.0  # Subtract by 1 to avoid numerical issues on rotation
-
     W = W * np.array(W >= 0)
-
-    # W[W < 0] = 0
-
-    # print('!!!!!!!!!!!!')
-    # print(np.min(V - V2))
-    # print(np.max(V - V2))
-    # print(np.min(W - W2))
-    # print(np.max(W - W2))
-    # print(V2)
-    # lkj
 
     return V, W
 
@@ -566,10 +409,8 @@ def initial_wake_expansion(turbine_yaw, turbine_diameter, U_local, veer, uR, u0)
 
 
 def calculate_effective_yaw_angle(
-    mesh_x_rotated,
     mesh_y_rotated,
     mesh_z,
-    x_coord_rotated,
     y_coord_rotated,
     turb_avg_vels,
     turbine_Ct,
@@ -582,334 +423,118 @@ def calculate_effective_yaw_angle(
     wind_shear,
     flow_field_v,
     flow_field_u_initial,
-    use_secondary_steering,
 ):
     eps_gain = 0.2
+    Ct = turbine_Ct
+    D = turbine_diameter
+    HH = turbine_hub_height
+    aI = turbine_aI
+    TSR = turbine_TSR
+    V = flow_field_v
+    Uinf = np.mean(flow_field_u_initial, axis=(3, 4, 5))[:, :, :, na, na, na]
+    eps = eps_gain * D  # Use set value
 
-    if use_secondary_steering:
-        # if not flow_field.wake.velocity_model.calculate_VW_velocities:
-        #     err_msg = (
-        #         "It appears that 'use_secondary_steering' is set "
-        #         + "to True and 'calculate_VW_velocities' is set to False. "
-        #         + "This configuration is not valid. Please set "
-        #         + "'use_secondary_steering' to True if you wish to use "
-        #         + "yaw-added recovery."
-        #     )
-        #     self.logger.error(err_msg, stack_info=True)
-        #     raise ValueError(err_msg)
-        # turbine parameters
-        Ct = turbine_Ct
-        D = turbine_diameter
-        HH = turbine_hub_height
-        aI = turbine_aI
-        TSR = turbine_TSR
-        V = flow_field_v
-        Uinf = np.mean(flow_field_u_initial, axis=(3, 4, 5))[:, :, :, na, na, na]
-        # print(np.shape(Ct))
-        # lkj
+    shape = np.shape(mesh_z)
+    yLocs = np.reshape(
+        mesh_y_rotated + 0.01 - y_coord_rotated,
+        (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
+    )
 
-        eps = eps_gain * D  # Use set value
-        # idx = np.where(
-        #     (np.abs(mesh_x_rotated - x_coord_rotated) < D / 4)
-        #     & (np.abs(mesh_y_rotated - y_coord_rotated) < D / 2)
-        # )
+    # location of top vortex
+    zT = np.reshape(
+        mesh_z + 0.01 - (HH + D / 2),
+        (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
+    )
+    rT = yLocs ** 2 + zT ** 2
 
-        # print(np.shape(mesh_y_rotated))
-        # print(np.shape(y_coord_rotated))
-        # yLocs = mesh_y_rotated[idx] + 0.01 - y_coord_rotated #[na,na,na,na,na,:]
-        shape = np.shape(mesh_z)
-        yLocs = np.reshape(
-            mesh_y_rotated + 0.01 - y_coord_rotated,
-            (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
+    # location of bottom vortex
+    zB = np.reshape(
+        mesh_z + 0.01 - (HH - D / 2),
+        (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
+    )
+    rB = yLocs ** 2 + zB ** 2
+
+    # wake rotation vortex
+    zC = np.reshape(
+        mesh_z + 0.01 - (HH),
+        (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
+    )
+    rC = yLocs ** 2 + zC ** 2
+
+    # find wake deflection from CRV
+    min_yaw = -45.0
+    max_yaw = 45.0
+    test_yaw = np.linspace(min_yaw, max_yaw, 91)
+    avg_V = np.mean(V, axis=(4, 5))[:, :, :, :, na, na]
+
+    # what yaw angle would have produced that same average spanwise velocity
+    vel_top = ((HH + D / 2) / specified_wind_height) ** wind_shear
+    vel_bottom = ((HH - D / 2) / specified_wind_height) ** wind_shear
+    Gamma_top = (np.pi / 8) * D * vel_top * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
+    Gamma_bottom = (
+        -(np.pi / 8) * D * vel_bottom * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
+    )
+    Gamma_wake_rotation = 0.25 * 2 * np.pi * D * (aI - aI ** 2) * turb_avg_vels / TSR
+
+    Veff = (
+        np.divide(
+            np.einsum("...i,...j->...ij", Gamma_top, zT),
+            (2 * np.pi * rT[:, :, :, :, :, na, :]),
         )
-        # print(np.shape(yLocs))
-        # lkj
+        * (1 - np.exp(-rT[:, :, :, :, :, na, :] / (eps ** 2)))
+        + np.einsum("...i,...j->...ij", Gamma_bottom, zB)
+        / (2 * np.pi * rB[:, :, :, :, :, na, :])
+        * (1 - np.exp(-rB[:, :, :, :, :, na, :] / (eps ** 2)))
+        + np.einsum("...i,...j->...ij", Gamma_wake_rotation, zC)
+        / (2 * np.pi * rC[:, :, :, :, :, na, :])
+        * (1 - np.exp(-rC[:, :, :, :, :, na, :] / (eps ** 2)))
+    )
 
-        # location of top vortex
-        zT = np.reshape(
-            mesh_z + 0.01 - (HH + D / 2),
-            (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
-        )
-        # print(np.shape(zT))
-        # lkj
-        rT = yLocs ** 2 + zT ** 2
-        # print('rt: ', np.shape(rT))
+    tmp = avg_V - np.mean(Veff, axis=6)
 
-        # print(rT)
-        # print(np.shape(yLocs))
-        # lkj
+    # return indices of sorted residuals to find effective yaw angle
+    order = np.argsort(np.abs(tmp), axis=5)
+    idx_1 = np.take_along_axis(order, np.array([[[[[[0]]]]]]), axis=5)
+    idx_2 = np.take_along_axis(order, np.array([[[[[[1]]]]]]), axis=5)
 
-        # location of bottom vortex
-        zB = np.reshape(
-            mesh_z + 0.01 - (HH - D / 2),
-            (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
-        )
-        rB = yLocs ** 2 + zB ** 2
+    # check edge case, if true, assign max yaw value
+    mask1 = np.array(idx_1 > idx_2)
+    mask2 = np.array(idx_1 <= idx_2)
 
-        # wake rotation vortex
-        zC = np.reshape(
-            mesh_z + 0.01 - (HH),
-            (shape[0], shape[1], shape[2], shape[3], 1, shape[4] * shape[5]),
-        )
-        rC = yLocs ** 2 + zC ** 2
+    idx_right_1 = idx_1 + 1  # adjacent point
+    idx_left_1 = idx_2 - 1  # adjacent point
+    mR_1 = abs(
+        np.take_along_axis(tmp, idx_right_1, axis=5)
+        - abs(np.take_along_axis(tmp, idx_1, axis=5))
+    )  # slope
+    mL_1 = abs(np.take_along_axis(tmp, idx_2, axis=5)) - abs(
+        np.take_along_axis(tmp, idx_left_1, axis=5)
+    )  # slope
+    bR_1 = abs(np.take_along_axis(tmp, idx_1, axis=5)) - mR_1 * idx_1  # intercept
+    bL_1 = abs(np.take_along_axis(tmp, idx_2, axis=5)) - mL_1 * idx_2  # intercept
 
-        # find wake deflection from CRV
-        min_yaw = -45.0
-        max_yaw = 45.0
-        test_yaw = np.linspace(min_yaw, max_yaw, 91)
-        # avg_V = np.mean(V[idx])
-        avg_V = np.mean(V, axis=(4, 5))[:, :, :, :, na, na]
-        # print(np.shape(idx))
-        # print(np.shape(V[idx]))
-        # print('2: ', np.shape(V))
-        # print('6: ', avg_V)
-        # print('7: ', Uinf)
-        # print('turb vels: ', np.shape(turb_avg_vels))
-        # print('TSR: ', np.shape(TSR))
-        # print('ai: ', np.shape(aI))
-        # print('1: ', np.shape((aI - aI ** 2) * turb_avg_vels))
-        # print(D)
+    idx_right_2 = idx_2 + 1  # adjacent point
+    idx_left_2 = idx_1 - 1  # adjacent point
+    mR_2 = abs(
+        np.take_along_axis(tmp, idx_right_2, axis=5)
+        - abs(np.take_along_axis(tmp, idx_2, axis=5))
+    )  # slope
+    mL_2 = abs(np.take_along_axis(tmp, idx_1, axis=5)) - abs(
+        np.take_along_axis(tmp, idx_left_2, axis=5)
+    )  # slope
+    bR_2 = abs(np.take_along_axis(tmp, idx_2, axis=5)) - mR_2 * idx_2  # intercept
+    bL_2 = abs(np.take_along_axis(tmp, idx_1, axis=5)) - mL_2 * idx_1  # intercept
 
-        # what yaw angle would have produced that same average spanwise velocity
-        vel_top = ((HH + D / 2) / specified_wind_height) ** wind_shear
-        vel_bottom = ((HH - D / 2) / specified_wind_height) ** wind_shear
-        Gamma_top = (
-            (np.pi / 8) * D * vel_top * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
-        )
-        Gamma_bottom = (
-            -(np.pi / 8) * D * vel_bottom * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
-        )
-        Gamma_wake_rotation = (
-            0.25 * 2 * np.pi * D * (aI - aI ** 2) * turb_avg_vels / TSR
-        )
-        print("0: ", TSR)
-        print("1: ", vel_top)
-        print("2: ", vel_bottom)
-        print("3: ", np.mean(Gamma_top, axis=5)[0, 1, 0, 0, 0])
-        print("4: ", np.mean(Gamma_bottom, axis=5)[0, 1, 0, 0, 0])
-        print("5: ", Gamma_wake_rotation)
-        print("8: ", Uinf)
-        # print('0: ', TSR)
-        # print(np.shape(Gamma_top))
-        # print(np.shape(Gamma_bottom))
-        # print(np.shape(Gamma_wake_rotation))
-        # print(np.shape(zT))
-        # print(Gamma_wake_rotation)
-        # print(Gamma_top[:,:,:,:,:,na,:] * zT)
-        # print(np.einsum("...i,...j", Gamma_top, zT))
-        # print(np.shape(zT))
-        # print(np.shape(Gamma_top))
-        # print(np.shape(np.einsum("...i,...j->...ij", Gamma_top, zT)))
-        # lkj
-        # print(np.shape(np.divide(np.einsum("...i,...j", Gamma_top, zT), (2 * np.pi * rT))
-        #     * (1 - np.exp(-rT / (eps ** 2)))))
-        # print(np.shape(np.einsum("...i,...j", Gamma_bottom, zB)
-        #     / (2 * np.pi * rB)
-        #     * (1 - np.exp(-rB / (eps ** 2)))))
-        # print(np.shape(np.einsum("...i,...j", Gamma_wake_rotation, zC)
-        #     / (2 * np.pi * rC)
-        #     * (1 - np.exp(-rC / (eps ** 2)))))
+    mR = mR_1 * mask1 + mR_2 * mask2
+    mL = mL_1 * mask1 + mL_2 * mask2
+    bR = bR_1 * mask1 + bR_2 * mask2
+    bL = bL_1 * mask1 + bL_2 * mask2
 
-        # print('!!!!!!!!!!!!!!!!')
-        # print(np.einsum("...i,j", Gamma_top, zT))
-        # print(np.matmul(zT, Gamma_top))
-        # print(Gamma_top * zT)
-        # lkj
-        # var = np.divide(
-        #     np.einsum("...i,...j->...ij", Gamma_top, zT),
-        #     (2 * np.pi * rT[:, :, :, :, :, na, :]),
-        # )
-        Veff = (
-            np.divide(
-                np.einsum("...i,...j->...ij", Gamma_top, zT),
-                (2 * np.pi * rT[:, :, :, :, :, na, :]),
-            )
-            * (1 - np.exp(-rT[:, :, :, :, :, na, :] / (eps ** 2)))
-            + np.einsum("...i,...j->...ij", Gamma_bottom, zB)
-            / (2 * np.pi * rB[:, :, :, :, :, na, :])
-            * (1 - np.exp(-rB[:, :, :, :, :, na, :] / (eps ** 2)))
-            # + (zC * Gamma_wake_rotation)
-            + np.einsum("...i,...j->...ij", Gamma_wake_rotation, zC)
-            / (2 * np.pi * rC[:, :, :, :, :, na, :])
-            * (1 - np.exp(-rC[:, :, :, :, :, na, :] / (eps ** 2)))
-        )
-        # print('3: ', np.shape(vel_top))
-        # print('4: ', np.shape(vel_bottom))
-        # print('3: ', np.shape(Gamma_top) )
-        # print('4: ', np.shape(Gamma_bottom))
-        # print('5: ', np.shape(Gamma_wake_rotation))
-        # print('6a: ', np.shape(np.einsum("...i,...j->...ij", Gamma_top, zT)))
-        # print('6b: ', np.shape(2 * np.pi * rT))
-        # print('6c: ', np.shape((1 - np.exp(-rT / (eps ** 2)))))
-        # print('6d: ', np.shape(np.divide(np.einsum("...i,...j->...ij", Gamma_top, zT), (2 * np.pi * rT))))
-        # print('7: ', np.shape(np.einsum("...i,...j->...ij", Gamma_bottom, zB)
-        #     / (2 * np.pi * rB)
-        #     * (1 - np.exp(-rB / (eps ** 2)))))
-        # print('8: ', np.shape(np.einsum("...i,...j->...ij", Gamma_wake_rotation, zC)
-        #     / (2 * np.pi * rC)
-        #     * (1 - np.exp(-rC / (eps ** 2)))))
-        # print('9: ', np.shape(Veff))
-        # print('8: ', Uinf)
-        # print('9: ', Ct)
+    ival = (bR - bL) / (mL - mR)
+    # convert the indice into degrees
+    yaw_effective = ival - max_yaw
 
-        # print(np.shape(turb_avg_vels))
-        # print(np.shape(aI))
-        # print('1: ', np.shape(np.divide(np.einsum("...i,j", Gamma_top, zT), (2 * np.pi * rT))
-        #     * (1 - np.exp(-rT / (eps ** 2)))))
-        # print('2: ', np.shape(np.einsum("...i,j", Gamma_bottom, zB)
-        #     / (2 * np.pi * rB)
-        #     * (1 - np.exp(-rB / (eps ** 2)))))
-        # print('3: ', np.shape(np.einsum("...i,j", Gamma_wake_rotation, zC)
-        #     / (2 * np.pi * rC)
-        #     * (1 - np.exp(-rC / (eps ** 2)))))
-
-        tmp = avg_V - np.mean(Veff, axis=6)
-        # print('veff: ', np.shape(Veff))
-        # print(np.shape(avg_V))
-        # print(np.mean(Veff, axis=6))
-        # print(np.shape(tmp))
-        # print('tmp: ', np.mean(tmp, axis=5)[0,1,0,0,0])
-        # lkj
-
-        # return indices of sorted residuals to find effective yaw angle
-        order = np.argsort(np.abs(tmp), axis=5)
-        # print(order)
-        # print(np.shape(tmp))
-        # lkj
-        # lkj
-        # idx_1 = order[0][0][0][0][0][0]
-        # idx_2 = order[0][0][:][0][0][1]
-        idx_1 = np.take_along_axis(order, np.array([[[[[[0]]]]]]), axis=5)
-        idx_2 = np.take_along_axis(order, np.array([[[[[[1]]]]]]), axis=5)
-
-        # check edge case, if true, assign max yaw value
-        if 0:
-            pass
-        # if idx_1 == 90 or idx_2 == 90:
-        #     yaw_effective = max_yaw
-        # check edge case, if true, assign min yaw value
-        # elif idx_1 == 0 or idx_2 == 0:
-        #     yaw_effective = -min_yaw
-        # for each identified minimum residual, use adjacent points to determine
-        # two equations of line and find the intersection of the two lines to
-        # determine the effective yaw angle to add; the if/else structure is based
-        # on which residual index is larger
-        else:
-            # if idx_1 > idx_2:
-            #     idx_right = idx_1 + 1  # adjacent point
-            #     idx_left = idx_2 - 1  # adjacent point
-            #     mR = abs(tmp[0][0][0][0][0][idx_right]) - abs(tmp[0][0][0][0][0][idx_1])  # slope
-            #     mL = abs(tmp[0][0][0][0][0][idx_2]) - abs(tmp[0][0][0][0][0][idx_left])  # slope
-            #     bR = abs(tmp[0][0][0][0][0][idx_1]) - mR * float(idx_1)  # intercept
-            #     bL = abs(tmp[0][0][0][0][0][idx_2]) - mL * float(idx_2)  # intercept
-            # else:
-            #     idx_right = idx_2 + 1  # adjacent point
-            #     idx_left = idx_1 - 1  # adjacent point
-            #     mR = abs(tmp[0][0][0][0][0][idx_right]) - abs(tmp[0][0][0][0][0][idx_2])  # slope
-            #     mL = abs(tmp[0][0][0][0][0][idx_1]) - abs(tmp[0][0][0][0][0][idx_left])  # slope
-            #     bR = abs(tmp[0][0][0][0][0][idx_2]) - mR * float(idx_2)  # intercept
-            #     bL = abs(tmp[0][0][0][0][0][idx_1]) - mL * float(idx_1)  # intercept
-
-            # if idx_1.flatten() > idx_2.flatten():
-            #     idx_right = idx_1 + 1  # adjacent point
-            #     idx_left = idx_2 - 1  # adjacent point
-            # #     mR = abs(tmp[idx_right]) - abs(tmp[idx_1])  # slope
-            # #     mL = abs(tmp[idx_2]) - abs(tmp[idx_left])  # slope
-            # #     bR = abs(tmp[idx_1]) - mR * float(idx_1)  # intercept
-            # #     bL = abs(tmp[idx_2]) - mL * float(idx_2)  # intercept
-            #     mR = abs(np.take_along_axis(tmp, idx_right, axis=5) - abs(np.take_along_axis(tmp, idx_1, axis=5)))  # slope
-            #     mL = abs(np.take_along_axis(tmp, idx_2, axis=5)) - abs(np.take_along_axis(tmp, idx_left, axis=5))  # slope
-            #     bR = abs(np.take_along_axis(tmp, idx_1, axis=5)) - mR * idx_1  # intercept
-            #     bL = abs(np.take_along_axis(tmp, idx_2, axis=5)) - mL * idx_2  # intercept
-
-            # else:
-            #     idx_right = idx_2 + 1  # adjacent point
-            #     idx_left = idx_1 - 1  # adjacent point
-            # # mR = abs(tmp[idx_right]) - abs(tmp[idx_2])  # slope
-            # # mL = abs(tmp[idx_1]) - abs(tmp[idx_left])  # slope
-            # # bR = abs(tmp[idx_2]) - mR * float(idx_2)  # intercept
-            # # bL = abs(tmp[idx_1]) - mL * float(idx_1)  # intercept
-            #     mR = abs(np.take_along_axis(tmp, idx_right, axis=5) - abs(np.take_along_axis(tmp, idx_2, axis=5)))  # slope
-            #     mL = abs(np.take_along_axis(tmp, idx_1, axis=5)) - abs(np.take_along_axis(tmp, idx_left, axis=5))  # slope
-            #     bR = abs(np.take_along_axis(tmp, idx_2, axis=5)) - mR * idx_2  # intercept
-            #     bL = abs(np.take_along_axis(tmp, idx_1, axis=5)) - mL * idx_1  # intercept
-
-            mask1 = np.array(idx_1 > idx_2)
-            mask2 = np.array(idx_1 <= idx_2)
-
-            idx_right_1 = idx_1 + 1  # adjacent point
-            idx_left_1 = idx_2 - 1  # adjacent point
-            mR_1 = abs(
-                np.take_along_axis(tmp, idx_right_1, axis=5)
-                - abs(np.take_along_axis(tmp, idx_1, axis=5))
-            )  # slope
-            mL_1 = abs(np.take_along_axis(tmp, idx_2, axis=5)) - abs(
-                np.take_along_axis(tmp, idx_left_1, axis=5)
-            )  # slope
-            bR_1 = (
-                abs(np.take_along_axis(tmp, idx_1, axis=5)) - mR_1 * idx_1
-            )  # intercept
-            bL_1 = (
-                abs(np.take_along_axis(tmp, idx_2, axis=5)) - mL_1 * idx_2
-            )  # intercept
-
-            idx_right_2 = idx_2 + 1  # adjacent point
-            idx_left_2 = idx_1 - 1  # adjacent point
-            mR_2 = abs(
-                np.take_along_axis(tmp, idx_right_2, axis=5)
-                - abs(np.take_along_axis(tmp, idx_2, axis=5))
-            )  # slope
-            mL_2 = abs(np.take_along_axis(tmp, idx_1, axis=5)) - abs(
-                np.take_along_axis(tmp, idx_left_2, axis=5)
-            )  # slope
-            bR_2 = (
-                abs(np.take_along_axis(tmp, idx_2, axis=5)) - mR_2 * idx_2
-            )  # intercept
-            bL_2 = (
-                abs(np.take_along_axis(tmp, idx_1, axis=5)) - mL_2 * idx_1
-            )  # intercept
-
-            mR = mR_1 * mask1 + mR_2 * mask2
-            mL = mL_1 * mask1 + mL_2 * mask2
-            bR = bR_1 * mask1 + bR_2 * mask2
-            bL = bL_1 * mask1 + bL_2 * mask2
-
-            # print('idx_1: ', idx_1)
-            # print('idx_2: ', idx_2)
-            # print('idx_left: ', idx_left)
-            # print('idx_right: ', idx_right)
-            # print('mR: ', mR)
-            # print('mL: ', mL)
-            # print('bR: ', bR)
-            # print('bL: ', bL)
-            # find the value at the intersection of the two lines
-            # ival = np.divide((bR - bL), (mL - mR))
-            ival = (bR - bL) / (mL - mR)
-            print("ival: ", ival)
-            # convert the indice into degrees
-            yaw_effective = ival - max_yaw
-            # print(np.shape((bR - bL) / (mL - mR)))
-            # print((bR - bL) / (mL - mR))
-            print("yaw_effective: ", yaw_effective)
-            # print(Uinf)
-            # print(mR)
-            # print(mL)
-            # print(bR)
-            # print(bL)
-            # [print('ival: ', val) for val in ival[0][0][0][0][0]]
-            # [print('ival: ', val) for val in ival[0][0][1][0][0]]
-            # print(ival[0][0][0][0][0])
-            # print(ival[0][0][1][0][0])
-            # print(np.shape(ival))
-            # print((bR - bL))
-            # print((mL - mR))
-            # print('!!!!!!!!!!!!!!!!!!!!!!!')
-            # print(yaw_effective + turbine_yaw)
-            # lkj
-
-        return yaw_effective + turbine_yaw
-    else:
-        return turbine_yaw
+    return yaw_effective + turbine_yaw
 
 
 def gaussian_function(U, C, r, n, sigma):
@@ -918,17 +543,9 @@ def gaussian_function(U, C, r, n, sigma):
 
 def gauss_vel_model(
     veer,
-    wind_shear,
-    specified_wind_height,
     flow_field_u_initial,
-    flow_field_u,
-    flow_field_v,
-    flow_field_w,
-    turb_avg_vels,
     turbine_ti,
     turbine_Ct,
-    turbine_aI,
-    turbine_TSR,
     turbine_yaw,
     turbine_hub_height,
     turbine_diameter,
@@ -944,30 +561,6 @@ def gauss_vel_model(
     beta = 0.077
     ka = 0.38
     kb = 0.004
-
-    # turb_v, turb_w = calc_VW(
-    #     x_coord_rotated, y_coord_rotated, wind_shear, specified_wind_height, turb_avg_vels, turbine_ti, turbine_Ct, turbine_aI, turbine_TSR, turbine_yaw, turbine_hub_height, turbine_diameter, flow_field_u_initial, flow_field_u, mesh_x_rotated, mesh_y_rotated, mesh_z
-    # )
-
-    # TI_mixing = yaw_added_turbulence_mixing(
-    #     x_coord_rotated,
-    #     y_coord_rotated,
-    #     turb_avg_vels,
-    #     turbine_ti,
-    #     turbine_diameter,
-    #     flow_field_v,
-    #     flow_field_w,
-    #     turb_v,
-    #     turb_w,
-    #     mesh_x_rotated,
-    #     mesh_y_rotated,
-    # )
-    # print('TI_mixing: ', TI_mixing)
-    # turbine_ti = (
-    #     turbine_ti + gch_gain * TI_mixing
-    # )
-    # TI = copy.deepcopy(turbine_ti)  # + TI_mixing
-    # print('TI: ', TI)
 
     # turbine parameters
     D = turbine_diameter
@@ -1002,8 +595,6 @@ def gauss_vel_model(
     sigma_z = (((x0 - xR) - (mesh_x_rotated - xR)) / (x0 - xR)) * 0.501 * D * np.sqrt(
         Ct / 2.0
     ) + ((mesh_x_rotated - xR) / (x0 - xR)) * sigma_z0
-    # print('x0: ', np.mean(x0))
-    # print('xR: ', np.mean(xR))
     sigma_y = (
         sigma_y * np.array(mesh_x_rotated >= xR)
         + np.ones_like(sigma_y) * np.array(mesh_x_rotated < xR) * 0.5 * D
@@ -1012,13 +603,6 @@ def gauss_vel_model(
         sigma_z * np.array(mesh_x_rotated >= xR)
         + np.ones_like(sigma_z) * np.array(mesh_x_rotated < xR) * 0.5 * D
     )
-    # print('sigma_y: ', np.mean(sigma_y))
-    # print('sigma_z: ', np.mean(sigma_z))
-
-    # sigma_y[mesh_x_rotated < xR] = 0.5 * D
-    # sigma_z[mesh_x_rotated < xR] = 0.5 * D
-    # print(np.min(sigma_y2 - sigma_y))
-    # print(np.max(sigma_y2 - sigma_y))
 
     a = cosd(veer) ** 2 / (2 * sigma_y ** 2) + sind(veer) ** 2 / (2 * sigma_z ** 2)
     b = -sind(2 * veer) / (4 * sigma_y ** 2) + sind(2 * veer) / (4 * sigma_z ** 2)
@@ -1035,10 +619,6 @@ def gauss_vel_model(
     velDef = gaussian_function(U_local, C, r, 1, np.sqrt(0.5))
     velDef = velDef * np.array(mesh_x_rotated >= xR)
     velDef = velDef * np.array(mesh_x_rotated <= x0)
-    # velDef[mesh_x_rotated < xR] = 0
-    # velDef[mesh_x_rotated > x0] = 0
-    # print(np.min(velDef2 - velDef))
-    # print(np.max(velDef2 - velDef))
 
     # wake expansion in the lateral (y) and the vertical (z)
     ky = ka * turbine_ti + kb  # wake expansion parameters
@@ -1051,10 +631,6 @@ def gauss_vel_model(
     sigma_z = sigma_z * np.array(mesh_x_rotated >= x0) + sigma_z0 * np.array(
         mesh_x_rotated < x0
     )
-    # sigma_y[mesh_x_rotated < x0] = sigma_y0[mesh_x_rotated < x0]
-    # sigma_z[mesh_x_rotated < x0] = sigma_z0[mesh_x_rotated < x0]
-    # print(np.min(sigma_y2 - sigma_y))
-    # print(np.max(sigma_z2 - sigma_z))
 
     # velocity deficit outside the near wake
     a = cosd(veer) ** 2 / (2 * sigma_y ** 2) + sind(veer) ** 2 / (2 * sigma_z ** 2)
@@ -1072,7 +648,6 @@ def gauss_vel_model(
     # compute velocities in the far wake
     velDef1 = gaussian_function(U_local, C, r, 1, np.sqrt(0.5))
     velDef1 = velDef1 * np.array(mesh_x_rotated >= x0)
-    # velDef1[mesh_x_rotated < x0] = 0
 
     turb_u = np.sqrt(velDef ** 2 + velDef1 ** 2)
 
@@ -1082,27 +657,18 @@ def gauss_vel_model(
 def gauss_defl_model(
     mesh_x_rotated,
     mesh_y_rotated,
-    mesh_z,
     x_coord_rotated,
     y_coord_rotated,
     flow_field_u_initial,
-    flow_field_v,
     wind_veer,
-    wind_shear,
-    turb_avg_vels,
     turbine_ti,
     turbine_Ct,
-    turbine_aI,
-    turbine_TSR,
-    turbine_yaw,
+    yaw,
     turbine_tilt,
-    turbine_hub_height,
     turbine_diameter,
-    use_secondary_steering,
 ):
     # free-stream velocity (m/s)
     wind_speed = flow_field_u_initial
-    # veer (degrees)
     veer = wind_veer
 
     # added turbulence model
@@ -1118,28 +684,6 @@ def gauss_defl_model(
 
     # turbine parameters
     D = turbine_diameter
-    # yaw = -1 * calculate_effective_yaw_angle(
-    #     mesh_x_rotated,
-    #     mesh_y_rotated,
-    #     mesh_z,
-    #     turb_avg_vels,
-    #     turbine_Ct,
-    #     turbine_aI,
-    #     turbine_TSR,
-    #     turbine_yaw,
-    #     turbine_hub_height,
-    #     turbine_diameter,
-    #     specified_wind_height,
-    #     wind_shear,
-    #     x_coord_rotated,
-    #     y_coord_rotated,
-    #     flow_field_v,
-    #     flow_field_u_initial,
-    #     use_secondary_steering,
-    # ) #* np.array(mesh_x_rotated > x_coord_rotated)
-    # print('yaw: ', np.shape(yaw))
-
-    # opposite sign convention in this model
     tilt = turbine_tilt
     Ct = turbine_Ct
 
@@ -1193,10 +737,6 @@ def gauss_defl_model(
     )
     delta_near_wake = delta_near_wake * np.array(mesh_x_rotated >= xR)
     delta_near_wake = delta_near_wake * np.array(mesh_x_rotated <= x0)
-    # delta_near_wake[mesh_x_rotated < xR] = 0.0
-    # delta_near_wake[mesh_x_rotated > x0] = 0.0
-    # print(np.min(delta_near_wake2 - delta_near_wake))
-    # print(np.max(delta_near_wake2 - delta_near_wake))
 
     # deflection in the far wake
     sigma_y = ky * (mesh_x_rotated - x0) + sigma_y0
@@ -1207,10 +747,6 @@ def gauss_defl_model(
     sigma_z = sigma_z * np.array(mesh_x_rotated >= x0) + sigma_z0 * np.array(
         mesh_x_rotated < x0
     )
-    # sigma_y[mesh_x_rotated < x0] = sigma_y0[mesh_x_rotated < x0]
-    # sigma_z[mesh_x_rotated < x0] = sigma_z0[mesh_x_rotated < x0]
-    # print(np.min(sigma_y2 - sigma_y))
-    # print(np.max(sigma_z2 - sigma_z))
 
     ln_deltaNum = (1.6 + np.sqrt(M0)) * (
         1.6 * np.sqrt(sigma_y * sigma_z / (sigma_y0 * sigma_z0)) - np.sqrt(M0)
@@ -1228,13 +764,7 @@ def gauss_defl_model(
     )
 
     delta_far_wake = delta_far_wake * np.array(mesh_x_rotated > x0)
-    # delta_far_wake[mesh_x_rotated <= x0] = 0.0
-    # print(np.min(delta_far_wake2 - delta_far_wake))
-    # print(np.max(delta_far_wake2 - delta_far_wake))
-
     deflection = delta_near_wake + delta_far_wake
-    # print('delta_near_wake: ', np.mean(delta_near_wake))
-    # print('delta_far_wake: ', np.mean(delta_far_wake))
 
     return deflection
 
@@ -1254,9 +784,6 @@ def crespo_hernandez(
         * ambient_TI ** ti_initial
         * ((x_coord_downstream - x_coord_upstream) / rotor_diameter) ** ti_downstream
     )
-    print("MIN!!!!!!!!!!!!!: ", np.min(x_coord_downstream - x_coord_upstream))
-    print("MAX!!!!!!!!!!!!!: ", np.max(x_coord_downstream - x_coord_upstream))
-    # Update turbulence intensity of downstream turbines
     return ti_calculation
 
 
@@ -1269,13 +796,17 @@ fCtInterp = interp1d(wind_speed, thrust, fill_value="extrapolate")
 
 def Ct(turb_avg_vels):
     Ct_vals = fCtInterp(turb_avg_vels)
-    Ct_vals[Ct_vals > 1.0] = 0.9999
-    Ct_vals[Ct_vals < 0.0] = 0.0001
+    Ct_vals = Ct_vals * np.array(Ct_vals < 1.0) + 0.9999 * np.ones(
+        np.shape(Ct_vals)
+    ) * np.array(Ct_vals >= 1.0)
+    Ct_vals = Ct_vals * np.array(Ct_vals > 0.0) + 0.0001 * np.ones(
+        np.shape(Ct_vals)
+    ) * np.array(Ct_vals <= 0.0)
     return Ct_vals
 
 
-def aI(turb_Ct):
-    return 0.5 * (1 - np.sqrt(1 - turb_Ct))
+def aI(turb_Ct, yaw_angles):
+    return 0.5 / cosd(yaw_angles) * (1 - np.sqrt(1 - turb_Ct * cosd(yaw_angles)))
 
 
 # ///// #
@@ -1288,24 +819,26 @@ turbine_radius = turbine_diameter / 2.0
 turbine_hub_height = 90.0
 
 x_spc = 5 * 126.0
-x_coord = np.array([0.0, x_spc, 2 * x_spc])  # , 3*x_spc, 4*x_spc])  # , 0*126.0])
-y_coord = np.array([0.0, 0.0, 0.0])  # , 0.0, 0.0])  # , 5*126.0])
-z_coord = np.array([90.0] * len(x_coord))  # , 90.0])
+x_coord = np.array([0.0, x_spc, 2 * x_spc])
+y_coord = np.array([0.0, 0.0, 0.0])
+z_coord = np.array([90.0] * len(x_coord))
 
 y_ngrid = 5
 z_ngrid = 5
 rloc = 0.5
 
 dtype = np.float64
+
 # Wind parameters
 ws = np.array([8.0])
-wd = np.array([275.0, 270.0])
+wd = np.array([270.0])
 # i  j  k  l  m
 # wd ws x  y  z
 
 specified_wind_height = 90.0
 wind_shear = 0.12
 wind_veer = 0.0
+
 
 # ///////////////// #
 # ONLY ROTOR POINTS #
@@ -1407,7 +940,7 @@ def initialize_flow_field(
 
 
 # ///////////////// #
-# JENSEN WAKE MODEL #
+# GAUSS WAKE MODEL #
 # ///////////////// #
 
 # VECTORIZED CALLS
@@ -1436,66 +969,39 @@ def initialize_flow_field(
     wind_shear,
 )
 
+# Initialize other field values
 u_wake = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 flow_field_u = flow_field_u_initial - u_wake
 flow_field_v = flow_field_v_initial
 flow_field_w = flow_field_w_initial
-# deflection_field = np.zeros(np.shape(flow_field_u_initial), dtype=dtype)
 turb_inflow_field = (
     np.ones(np.shape(flow_field_u_initial), dtype=dtype) * flow_field_u_initial
 )
 
+# Initialize turbine values
 TI = 0.06
 turb_TIs = np.ones_like(x_coord_rotated) * TI
 ambient_TIs = np.ones_like(x_coord_rotated) * TI
 yaw_angle = np.ones_like(x_coord_rotated) * 0.0
-# print(np.shape(yaw_angle))
-# yaw_angle[:,:,:,0,:,:] = 20.0
 turbine_tilt = np.ones_like(x_coord_rotated) * 0.0
 turbine_TSR = np.ones_like(x_coord_rotated) * 8.0
 
-tic = time.perf_counter()
-
-use_secondary_steering = True
-
+# Loop over turbines to solve wakes
 for i in range(len(x_coord)):
-    # print(np.shape((flow_field_u_initial - u_wake)))
-    # print(np.shape(turb_inflow_field))
-    # turb_inflow_field[:, :, :, i, :, :] = (flow_field_u_initial - u_wake)[
-    #     :, :, :, i, :, :
-    # ]
-    # print('shape 1: ', np.shape(flow_field_u_initial))
-    # print('shape 2: ', np.shape(u_wake))
     turb_inflow_field = turb_inflow_field * np.array(
         mesh_x_rotated != x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
     ) + (flow_field_u_initial - u_wake) * np.array(
         mesh_x_rotated == x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
     )
-    # print('!!!!!!!!!!!!!!!!!!')
-    # print(u_wake * np.array(mesh_x_rotated >= x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]))
-    # print('$$$$$$$$$$$$$')
 
-    print(np.shape(turb_inflow_field))
     turb_avg_vels = turbine_avg_velocity(turb_inflow_field)
-    print("222: ", turb_avg_vels)
-    print(np.shape(turb_avg_vels))
     turb_Cts = Ct(turb_avg_vels)
-    turb_aIs = aI(turb_Cts)
-    # turb_TIs = np.ones(np.shape(turb_aIs)) * 0.06
+    turb_aIs = aI(turb_Cts, np.squeeze(yaw_angle, axis=(4, 5)))
 
-    # deflection_field = jimenez_model(
-    #     yaw_angle,
-    #     turb_Cts[:, :, :, i],
-    #     x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
-    #     mesh_x_rotated,
-    #     turbine_diameter,
-    # )
-
+    # Secondary steering calculation
     yaw = -1 * calculate_effective_yaw_angle(
-        mesh_x_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         mesh_y_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         mesh_z[:, :, :, i, :, :][:, :, :, na, :, :],
-        x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_avg_vels[:, :, :, i][:, :, :, na, na, na],
         turb_Cts[:, :, :, i][:, :, :, na, na, na],
@@ -1508,98 +1014,67 @@ for i in range(len(x_coord)):
         wind_shear,
         flow_field_v[:, :, :, i, :, :][:, :, :, na, :, :],
         flow_field_u_initial,
-        use_secondary_steering,
     )
 
-    print("1: ", np.shape(flow_field_v))
+    # Wake deflection calculation
     deflection_field = gauss_defl_model(
         mesh_x_rotated,
         mesh_y_rotated,
-        mesh_z,
         x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         flow_field_u_initial,
-        flow_field_v[:, :, :, i, :, :][:, :, :, na, :, :],
         wind_veer,
-        wind_shear,
-        turb_avg_vels[:, :, :, i][:, :, :, na, na, na],
         turb_TIs[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_Cts[:, :, :, i][:, :, :, na, na, na],
-        turb_aIs[:, :, :, i][:, :, :, na, na, na],
-        turbine_TSR[:, :, :, i, :, :][:, :, :, na, :, :],
-        yaw_angle,
+        yaw[:, :, :, i, :, :][:, :, :, na, :, :],
         turbine_tilt,
-        turbine_hub_height,
         turbine_diameter,
-        use_secondary_steering,
     )
 
+    # Determine V and W wind components
     turb_v_wake, turb_w_wake = calc_VW(
         x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         wind_shear,
         specified_wind_height,
         turb_avg_vels[:, :, :, i][:, :, :, na, na, na],
-        turb_TIs[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_Cts[:, :, :, i][:, :, :, na, na, na],
         turb_aIs[:, :, :, i][:, :, :, na, na, na],
-        turbine_TSR,
+        turbine_TSR[:, :, :, i, :, :][:, :, :, na, :, :],
         yaw_angle,
         turbine_hub_height,
         turbine_diameter,
         flow_field_u_initial,
-        flow_field_u,
         mesh_x_rotated,
         mesh_y_rotated,
         mesh_z,
     )
 
+    # Yaw-added wake recovery (YAR) calculation
     TI_mixing = yaw_added_turbulence_mixing(
-        x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
-        y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_avg_vels[:, :, :, i][:, :, :, na, na, na],
         turb_TIs[:, :, :, i, :, :][:, :, :, na, :, :],
-        turbine_diameter,
-        flow_field_v,
-        flow_field_w,
-        turb_v_wake,
-        turb_w_wake,
-        mesh_x_rotated,
-        mesh_y_rotated,
+        flow_field_v[:, :, :, i, :, :][:, :, :, na, :, :],
+        flow_field_w[:, :, :, i, :, :][:, :, :, na, :, :],
+        turb_v_wake[:, :, :, i, :, :][:, :, :, na, :, :],
+        turb_w_wake[:, :, :, i, :, :][:, :, :, na, :, :],
     )
-    # TI_mixing = 0.0
-    # print('TI_mixing: ', TI_mixing)
+
+    # Modify turbine TIs based on YAR
     gch_gain = 2
-    # print('20: ', turb_TIs)
     turb_TIs = turb_TIs + gch_gain * TI_mixing * (
         np.array(
             x_coord_rotated == x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
         )
     )
-    # print('21: ', turb_TIs)
-    # print('22: ', (
-    #         np.array(
-    #             x_coord_rotated == x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :]
-    #         )
-    #     ))
-    # TI = copy.deepcopy(turb_TIs)  # + TI_mixing
-    # print('TI: ', TI)
-    # print('Ct: ', turb_aIs)
 
+    # Calculate wake deficits
     veer = 0.0
     turb_u_wake = gauss_vel_model(
         veer,
-        wind_shear,
-        specified_wind_height,
         flow_field_u_initial,
-        flow_field_u,
-        flow_field_v,
-        flow_field_w,
-        turb_avg_vels[:, :, :, i][:, :, :, na, na, na],
         turb_TIs[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_Cts[:, :, :, i][:, :, :, na, na, na],
-        turb_aIs[:, :, :, i][:, :, :, na, na, na],
-        turbine_TSR,
         yaw_angle,
         turbine_hub_height,
         turbine_diameter,
@@ -1611,26 +1086,19 @@ for i in range(len(x_coord)):
         deflection_field,
     )
 
-    # turb_v_wake = np.zeros_like(turb_u_wake)
-    # turb_w_wake = np.zeros_like(turb_u_wake)
-    # print('10: ', np.mean(turb_u_wake))
-
-    print("##################### i: ", i)
-    # print(turb_u_wake)
-
-    print("")
+    # Perform wake/field combinations
     u_wake = np.sqrt((u_wake ** 2) + (np.array(turb_u_wake) ** 2))
     flow_field_u = flow_field_u_initial - u_wake
     flow_field_v = flow_field_v + turb_v_wake
     flow_field_w = flow_field_w + turb_w_wake
 
+    # Calculate wake overlap for wake-added turbulence (WAT)
     turb_wake_field = flow_field_u_initial - turb_u_wake
-
     area_overlap = calculate_area_overlap(
         turb_wake_field, flow_field_u_initial, y_ngrid, z_ngrid
     )
 
-    # print('10: ', turb_TIs)
+    # Calculate WAT for turbines
     WAT_TIs = crespo_hernandez(
         ambient_TIs,
         x_coord_rotated,
@@ -1638,9 +1106,10 @@ for i in range(len(x_coord)):
         turbine_diameter,
         turb_aIs[:, :, :, i][:, :, :, na, na, na],
     )
-    print("11: ", WAT_TIs)
-    # print('111: ', turb_aIs)
-    # TODO: will need to make the rotor_diameter part of this mask work for turbines of different types
+
+    # Modify WAT by wake area overlap
+    # TODO: will need to make the rotor_diameter part of this mask work for
+    # turbines of different types
     downstream_influence_length = 15 * turbine_diameter
     ti_added = (
         area_overlap[:, :, :, :, na, na]
@@ -1667,46 +1136,6 @@ for i in range(len(x_coord)):
             )
         )
     )
-    # # print('mask: ', (
-    #     np.array(x_coord_rotated > x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :])
-    # ) * (
-    #     np.array(np.abs(y_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :] - y_coord_rotated) < 2*turbine_diameter)
-    # ) * (
-    #     np.array(x_coord_rotated <= downstream_influence_length + x_coord_rotated[:, :, :, i, :, :][:, :, :, na, :, :])
-    # ))
-    print("12: ", ti_added[0, 1, 0, 2, 0, 0])
 
-    # print('13: ', np.sqrt(ti_added ** 2 + turb_TIs ** 2))
-    print("14: ", turb_TIs)
+    # Combine turbine TIs with WAT
     turb_TIs = np.maximum(np.sqrt(ti_added ** 2 + ambient_TIs ** 2), turb_TIs,)
-    print("2: ", turb_TIs)
-
-
-[print(val) for val in turb_TIs.flatten()]
-
-
-toc = time.perf_counter()
-
-# /////////////// #
-# COMPARE METHODS #
-# /////////////// #
-
-# flow_field_u = flow_field_u_initial - u_wake
-# print(
-#     "vec u: ",
-#     np.take_along_axis(
-#         np.take_along_axis(flow_field_u, inds_sorted, axis=3), inds_unsorted, axis=3
-#     ),
-# )
-# print("vec shape of u: ", np.shape(flow_field_u_initial - u_wake))
-# print("Turbine avg vels: ", turbine_avg_velocity(turb_inflow_field))
-
-# //////////////// #
-# COMPUTE GRADIENT #
-# //////////////// #
-
-# tic = time.perf_counter()
-# calc_wake_grad = grad(calculate_wake)(locs, turbine_diameter, turbine_ai, ws, wd, specified_wind_height, wind_shear)
-# print('gradient: ', calc_wake_grad)
-# toc = time.perf_counter()
-# print(f"Computed gradient in {toc - tic:0.4f} seconds")
