@@ -191,12 +191,7 @@ def TKE_to_TI(turbulence_kinetic_energy, turb_avg_vels):
 
 
 def yaw_added_turbulence_mixing(
-    turb_avg_vels,
-    turbine_ti,
-    flow_field_v,
-    flow_field_w,
-    turb_v,
-    turb_w,
+    turb_avg_vels, turbine_ti, flow_field_v, flow_field_w, turb_v, turb_w,
 ):
     # calculate fluctuations
     v_prime = flow_field_v + turb_v
@@ -897,16 +892,8 @@ def initialize_flow_field(
 
     # TODO: would it be simpler to create rotor points inherently rotated to be
     # perpendicular to the wind
-    yt = np.linspace(
-        x2 - pt,
-        x2 + pt,
-        y_ngrid,
-    )
-    zt = np.linspace(
-        x3 - pt,
-        x3 + pt,
-        z_ngrid,
-    )
+    yt = np.linspace(x2 - pt, x2 + pt, y_ngrid,)
+    zt = np.linspace(x3 - pt, x3 + pt, z_ngrid,)
 
     x_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * x_coord[:, na, na]
     y_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * yt.T[:, :, na]
@@ -1046,7 +1033,7 @@ for i in range(len(x_coord)):
         wind_veer,
         turb_TIs[:, :, :, i, :, :][:, :, :, na, :, :],
         turb_Cts[:, :, :, i][:, :, :, na, na, na],
-        yaw_angle[:, :, :, i, :, :][:, :, :, na, :, :],
+        yaw[:, :, :, i, :, :][:, :, :, na, :, :],
         turbine_tilt,
         turbine_diameter,
     )
@@ -1162,10 +1149,7 @@ for i in range(len(x_coord)):
     )
 
     # Combine turbine TIs with WAT
-    turb_TIs = np.maximum(
-        np.sqrt(ti_added ** 2 + ambient_TIs ** 2),
-        turb_TIs,
-    )
+    turb_TIs = np.maximum(np.sqrt(ti_added ** 2 + ambient_TIs ** 2), turb_TIs,)
 
 toc = time.perf_counter()
 print(f"Computed wake deficits in {toc - tic:0.4f} seconds")
