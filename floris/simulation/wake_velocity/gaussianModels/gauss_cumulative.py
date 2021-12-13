@@ -13,6 +13,7 @@
 import copy
 
 import numpy as np
+from scipy.special import gamma
 
 from ....utilities import cosd, sind, tand
 from .gaussian_model_base import GaussianModel
@@ -39,6 +40,14 @@ class GaussCumulative(GaussianModel):
         "kb": 0.000,
         "alpha": 0.58,
         "beta": 0.077,
+        "a_s": 0.179367259,
+        "b_s": 0.0118889215,
+        "c_s1": 0.0563691592,
+        "c_s2": 0.13290157,
+        "b_f1": 1.59,
+        "b_f2": -23.3114654,
+        "b_f3": -2.15199155,
+        "c_f": 2.98262872,
         "calculate_VW_velocities": False,
         "use_yaw_added_recovery": False,
         "eps_gain": 0.2,
@@ -94,6 +103,21 @@ class GaussCumulative(GaussianModel):
         self.alpha_mod = model_dictionary["alpha_mod"]
         self.sigma_gch = model_dictionary["sigma_gch"]
 
+        # wake expansion parameters
+        # Table 4 of reference [3] in docstring
+        self.a_s = model_dictionary["a_s"]
+        self.b_s = model_dictionary["b_s"]
+        self.c_s1 = model_dictionary["c_s1"]
+        self.c_s2 = model_dictionary["c_s2"]
+
+        # fitted parameters for super-Gaussian order n
+        # Table 4 of reference [3] in docstring
+        self.b_f1 = model_dictionary["b_f1"]
+        self.b_f2 = model_dictionary["b_f2"]
+        self.b_f3 = model_dictionary["b_f3"]
+        self.c_f = model_dictionary["c_f"]
+
+
     def function(
         self,
         x_locations,
@@ -144,7 +168,7 @@ class GaussCumulative(GaussianModel):
         u_wake = kwargs["u_wake"]
         Ctmp = kwargs["Ctmp"]
         TI = copy.deepcopy(turbine.current_turbulence_intensity)
-
+        self.sigma_gch = True
         if self.sigma_gch is True:
             sigma_n = self.wake_expansion(
                 flow_field,
@@ -202,27 +226,80 @@ class GaussCumulative(GaussianModel):
         num = turbine.Ct * (Uavg / flow_field.u_initial) ** 2
         den = (8 * (sigma_n / turbine.rotor_diameter) ** 2) * (1 - sum_lbda) ** 2
         C = flow_field.u_initial * (1 - sum_lbda) * (1 - np.sqrt(1 - num / den))
+
+        # blondel
+        # super gaussian
+        # b_f = self.b_f1 * np.exp(self.b_f2 * TI) + self.b_f3
+        x_tilde = np.abs(x_locations - turbine_coord.x1) / turbine.rotor_diameter
+        r_tilde = (
+                np.sqrt(
+                    (y_locations - turbine_coord.x2 - deflection_field) ** 2 + (z_locations - turbine_coord.x3) ** 2,
+                    dtype=np.float128,
+                )
+                / turbine.rotor_diameter
+        )
+        a_f = 3.11
+        b_f = -0.68
+        c_f = 2.41
+        n = a_f * np.exp(b_f * x_tilde) + c_f
+
+        a1 = 2 ** (2 / n - 1)
+        a2 = 2 ** (4 / n - 2)
+
+        # # Calculate Beta (Eq 10, pp 5 of ref. [1] and table 4 of ref. [2] in docstring)
+        # beta = 0.5 * (1.0 + np.sqrt(1.0 - turbine.Ct)) / np.sqrt(1.0 - turbine.Ct)
+        # k = self.a_s * TI + self.b_s
+        # eps = (self.c_s1 * turbine.Ct + self.c_s2) * np.sqrt(beta)
+        #
+        # # Calculate sigma_tilde (Eq 9, pp 5 of ref. [1] and table 4 of ref. [2] in docstring)
+        # sigma_n = k * x_tilde + eps
+
+        C = a1 - np.sqrt(a2
+            - (
+                    (n * turbine.Ct)
+                    * cosd(turbine.yaw_angle)
+                    / (
+                            16.0
+                            * gamma(2 / n)
+                            * np.sign(sigma_n)
+                            * (np.abs(sigma_n) ** (4 / n))
+                            * (1 - sum_lbda) ** 2
+                    )
+            )
+        )
+       
+        C = C * (1 - sum_lbda)
+
+
         # Max theoretical velocity deficit based on Betz theory
-        C_max = 2 * turbine.aI * Uavg
-        # TODO: determine whether C_max should vary in z (height)
-        # C_max = 2 * turbine.aI * np.reshape(turbine.velocities, (5,5)) * np.ones_like(flow_field.u_initial)
-        mask = C > C_max
-        C[mask] = C_max
-        nan_mask = np.isnan(C)
-        C[nan_mask] = C_max
+#         C_max = 2 * turbine.aI * Uavg
+#         # TODO: determine whether C_max should vary in z (height)
+#         # C_max = 2 * turbine.aI * np.reshape(turbine.velocities, (5,5)) * np.ones_like(flow_field.u_initial)
+#         mask = C > C_max
+#         C[mask] = C_max
+#         nan_mask = np.isnan(C)
+#         C[nan_mask] = 0.0
 
         f = np.exp(
             -((y_locations - turbine_coord.x2 - deflection_field) ** 2)
             / (2 * sigma_n ** 2)
         ) * np.exp(-((z_locations - turbine_coord.x3) ** 2) / (2 * sigma_n ** 2))
 
-        C[x_locations <= turbine_coord.x1] = 0.0
-        # C[y_locations < turbine_coord.x2 - 1.5 * turbine.rotor_diameter] = 0.0
-        # C[y_locations > turbine_coord.x2 + 1.5 * turbine.rotor_diameter] = 0.0
-        Ctmp.append(C)
+        # C[x_locations <= turbine_coord.x1] = 0.0
+        # # C[y_locations < turbine_coord.x2 - 1.5 * turbine.rotor_diameter] = 0.0
+        # # C[y_locations > turbine_coord.x2 + 1.5 * turbine.rotor_diameter] = 0.0
+        # Ctmp.append(C)
+#         print(C)
 
+        # Calculate mask values to mask upstream wake
+        yR = y_locations - turbine_coord.x2
+        xR = yR * tand(turbine.yaw_angle) + turbine_coord.x1
+        
         # add turbines together
-        u_wake = u_wake + C * f
+        velDef = C * np.exp((-1 * r_tilde ** n) / (2 * sigma_n ** 2))
+        velDef[x_locations < xR] = 0
+        u_wake = u_wake + velDef
+#         u_wake = u_wake + flow_field.u_initial * C * f
 
         # TODO integrate back in the v and w components
         # turb_u_wake = copy.deepcopy(sum_Cf)
@@ -261,49 +338,58 @@ class GaussCumulative(GaussianModel):
         Ct = turbine.Ct
         U_local = flow_field.u_initial
 
-        xR, _ = GaussianModel.mask_upstream_wake(y_locations, turbine_coord, yaw)
-        uR, u0 = GaussianModel.initial_velocity_deficits(U_local, Ct)
+        # Calculate Beta (Eq 10, pp 5 of ref. [1] and table 4 of ref. [2] in docstring)
+        beta = 0.5 * (1.0 + np.sqrt(1.0 - Ct)) / np.sqrt(1.0 - Ct)
+        k = self.a_s * TI + self.b_s
+        eps = (self.c_s1 * Ct + self.c_s2) * np.sqrt(beta)
 
-        sigma_y0, sigma_z0 = GaussianModel.initial_wake_expansion(
-            turbine, U_local, veer, uR, u0
-        )
+        # Calculate sigma_tilde (Eq 9, pp 5 of ref. [1] and table 4 of ref. [2] in docstring)
+        x_tilde = np.abs(x_locations - turbine_coord.x1) / turbine.rotor_diameter
+        sigma_y = k * x_tilde + eps
+
+        # xR, _ = GaussianModel.mask_upstream_wake(y_locations, turbine_coord, yaw)
+        # uR, u0 = GaussianModel.initial_velocity_deficits(U_local, Ct)
+        #
+        # sigma_y0, sigma_z0 = GaussianModel.initial_wake_expansion(
+        #     turbine, U_local, veer, uR, u0
+        # )
 
         # quantity that determines when the far wake starts
-        x0 = (
-            D
-            * (cosd(yaw) * (1 + np.sqrt(1 - Ct)))
-            / (
-                np.sqrt(2)
-                * (4 * self.alpha * TI + 2 * self.beta * (1 - np.sqrt(1 - Ct)))
-            )
-            + turbine_coord.x1
-        )
+        # x0 = (
+        #     D
+        #     * (cosd(yaw) * (1 + np.sqrt(1 - Ct)))
+        #     / (
+        #         np.sqrt(2)
+        #         * (4 * self.alpha * TI + 2 * self.beta * (1 - np.sqrt(1 - Ct)))
+        #     )
+        #     + turbine_coord.x1
+        # )
 
         # velocity deficit in the near wake
-        sigma_y = (((x0 - xR) - (x_locations - xR)) / (x0 - xR)) * 0.501 * D * np.sqrt(
-            Ct / 2.0
-        ) + ((x_locations - xR) / (x0 - xR)) * sigma_y0
-        sigma_z = (((x0 - xR) - (x_locations - xR)) / (x0 - xR)) * 0.501 * D * np.sqrt(
-            Ct / 2.0
-        ) + ((x_locations - xR) / (x0 - xR)) * sigma_z0
-        sigma_y[x_locations < xR] = 0.5 * D
-        sigma_z[x_locations < xR] = 0.5 * D
+        # sigma_y = (((x0 - xR) - (x_locations - xR)) / (x0 - xR)) * 0.501 * D * np.sqrt(
+        #     Ct / 2.0
+        # ) + ((x_locations - xR) / (x0 - xR)) * sigma_y0
+        # sigma_z = (((x0 - xR) - (x_locations - xR)) / (x0 - xR)) * 0.501 * D * np.sqrt(
+        #     Ct / 2.0
+        # ) + ((x_locations - xR) / (x0 - xR)) * sigma_z0
+        # sigma_y[x_locations < xR] = 0.5 * D
+        # sigma_z[x_locations < xR] = 0.5 * D
 
-        sigma_y[x_locations > x0] = 0.0 * D
-        sigma_z[x_locations > x0] = 0.0 * D
+        # sigma_y[x_locations > x0] = 0.0 * D
+        # sigma_z[x_locations > x0] = 0.0 * D
 
         # wake expansion in the lateral (y) and the vertical (z)
-        ky = self.ka * TI + self.kb  # wake expansion parameters
-        kz = self.ka * TI + self.kb  # wake expansion parameters
-        sigma_y1 = ky * (x_locations - x0) + sigma_y0
-        sigma_z1 = kz * (x_locations - x0) + sigma_z0
-        # sigma_y1[x_locations < x0] = sigma_y0[x_locations < x0]
-        # sigma_z1[x_locations < x0] = sigma_z0[x_locations < x0]
-        sigma_y1[x_locations < x0] = 0.0
-        sigma_z1[x_locations < x0] = 0.0
-
-        sigma_y = sigma_y + sigma_y1
-        sigma_z = sigma_z + sigma_z1
+        # ky = self.ka * TI + self.kb  # wake expansion parameters
+        # kz = self.ka * TI + self.kb  # wake expansion parameters
+        # sigma_y1 = ky * (x_locations - x0) + sigma_y0
+        # sigma_z1 = kz * (x_locations - x0) + sigma_z0
+        # # sigma_y1[x_locations < x0] = sigma_y0[x_locations < x0]
+        # # sigma_z1[x_locations < x0] = sigma_z0[x_locations < x0]
+        # sigma_y1[x_locations < x0] = 0.0
+        # sigma_z1[x_locations < x0] = 0.0
+        #
+        # sigma_y = sigma_y + sigma_y1
+        # sigma_z = sigma_z + sigma_z1
 
         return sigma_y
 
@@ -580,4 +666,292 @@ class GaussCumulative(GaussianModel):
                     "Current value of sigma_gch, {0}, is not equal to tuned "
                     + "value of {1}."
                 ).format(value, __class__.default_parameters["sigma_gch"])
+            )
+
+    @property
+    def a_s(self):
+        """
+        Constant coefficient used in calculation of wake expansion. See
+        Eqn. 9 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._a_s
+
+    @a_s.setter
+    def a_s(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for a_s: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._a_s = value
+        if value != __class__.default_parameters["a_s"]:
+            self.logger.info(
+                (
+                    "Current value of a_s, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["a_s"])
+            )
+
+    @property
+    def b_s(self):
+        """
+        Constant coefficient used in calculation of wake expansion. See
+        Eqn. 9 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._b_s
+
+    @b_s.setter
+    def b_s(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for b_s: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._b_s = value
+        if value != __class__.default_parameters["b_s"]:
+            self.logger.info(
+                (
+                    "Current value of b_s, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["b_s"])
+            )
+
+    @property
+    def c_s1(self):
+        """
+        Linear constant used in calculation of wake expansion. See
+        Eqn. 9 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._c_s1
+
+    @c_s1.setter
+    def c_s1(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for c_s1: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._c_s1 = value
+        if value != __class__.default_parameters["c_s1"]:
+            self.logger.info(
+                (
+                    "Current value of c_s1, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["c_s1"])
+            )
+
+    @property
+    def c_s2(self):
+        """
+        Linear constant used in calculation of wake expansion. See
+        Eqn. 9 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._c_s2
+
+    @c_s2.setter
+    def c_s2(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for c_s2: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._c_s2 = value
+        if value != __class__.default_parameters["c_s2"]:
+            self.logger.info(
+                (
+                    "Current value of c_s2, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["c_s2"])
+            )
+
+    @property
+    def b_f1(self):
+        """
+        Constant exponent coefficient used in calculation of the super-Gaussian
+        order. See Eqn. 13 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._b_f1
+
+    @b_f1.setter
+    def b_f1(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for b_f1: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._b_f1 = value
+        if value != __class__.default_parameters["b_f1"]:
+            self.logger.info(
+                (
+                    "Current value of b_f1, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["b_f1"])
+            )
+
+    @property
+    def b_f2(self):
+        """
+        Constant exponent coefficient used in calculation of the super-Gaussian
+        order. See Eqn. 13 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._b_f2
+
+    @b_f2.setter
+    def b_f2(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for b_f2: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._b_f2 = value
+        if value != __class__.default_parameters["b_f2"]:
+            self.logger.info(
+                (
+                    "Current value of b_f2, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["b_f2"])
+            )
+
+    @property
+    def b_f3(self):
+        """
+        Constant exponent coefficient used in calculation of the super-Gaussian
+        order. See Eqn. 13 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._b_f3
+
+    @b_f3.setter
+    def b_f3(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for b_f3: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._b_f3 = value
+        if value != __class__.default_parameters["b_f3"]:
+            self.logger.info(
+                (
+                    "Current value of b_f3, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["b_f3"])
+            )
+
+    @property
+    def c_f(self):
+        """
+        Linear constant used in calculation of the super-Gaussian order. See
+        Eqn. 13 in [1] and Table 4 in [3].
+
+        **Note:** This is a virtual property used to "get" or "set" a value.
+
+        Args:
+            value (float): Value to set.
+
+        Returns:
+            float: Value currently set.
+
+        Raises:
+            ValueError: Invalid value.
+        """
+        return self._c_f
+
+    @c_f.setter
+    def c_f(self, value):
+        if type(value) is not float and type(value) is not int:
+            err_msg = (
+                "Invalid value type given for c_f: {}, " + "expected float."
+            ).format(value)
+            self.logger.error(err_msg, stack_info=True)
+            raise ValueError(err_msg)
+        self._c_f = value
+        if value != __class__.default_parameters["c_f"]:
+            self.logger.info(
+                (
+                    "Current value of c_f, {0}, is not equal to tuned "
+                    + "value of {1}."
+                ).format(value, __class__.default_parameters["c_f"])
             )
