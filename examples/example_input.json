@@ -234,25 +234,34 @@
         },
         "wake_turbulence_parameters": {
           "crespo_hernandez": {
-            "ai": 0.8,
-            "constant": 0.5,
-            "downstream": -0.32,
-            "initial": 0.1
+            "ai": 0.83,
+            "constant": 0.9,
+            "downstream": -0.25,
+            "initial": 0.01
           }
         },
         "wake_velocity_parameters": {
-          "gauss_legacy": {
-            "calculate_VW_velocities": true,
-            "eps_gain": 0.2,
+          "gauss_cumulative": {
             "ka": 0.38,
-            "kb": 0.004,
-            "use_yaw_added_recovery": true
+            "kb": 0.000,
+            "a_s": 0.179367259,
+            "b_s": 0.0118889215,
+            "c_s1": 0.0563691592,
+            "c_s2": 0.13290157,
+            "a_f": 3.11,
+            "b_f": -0.68,
+            "c_f": 2.41,
+            "calculate_VW_velocities": true,
+            "use_yaw_added_recovery": true,
+            "eps_gain": 0.2,
+            "alpha_mod": 1.0,
+            "sigma_gch": true
           }
         }
       },
       "turbulence_model": "crespo_hernandez",
-      "velocity_model": "gauss_legacy",
-      "wake_solver": "sequential"
+      "velocity_model": "gauss_cumulative",
+      "wake_solver": "cumulative"
     },
     "type": "wake"
   }
