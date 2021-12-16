@@ -293,7 +293,24 @@ class GaussCumulative(GaussianModel):
         # add turbines together
         velDef = C * np.exp((-1 * r_tilde ** n) / (2 * sigma_n ** 2))
         velDef[x_locations < xR] = 0
-        u_wake = u_wake + Uavg * velDef
+        # u_wake = u_wake + Uavg * velDef
+
+        # mirrored wake
+        r_tilde2 = (
+                np.sqrt(
+                    (y_locations - turbine_coord.x2 - deflection_field) ** 2 + (z_locations + turbine_coord.x3) ** 2,
+                    dtype=np.float128,
+                )
+                / turbine.rotor_diameter
+        )
+        velDef2 = C * np.exp((-1 * r_tilde2 ** n) / (2 * sigma_n ** 2))
+        velDef2[x_locations < xR] = 0
+        
+        u_wake = u_wake + Uavg * np.sqrt(velDef ** 2 + velDef2 ** 2)
+
+
+
+
 #         u_wake = u_wake + flow_field.u_initial * C * f
 
         # TODO integrate back in the v and w components
