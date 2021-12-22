@@ -194,7 +194,12 @@ def TKE_to_TI(turbulence_kinetic_energy, turb_avg_vels):
 
 
 def yaw_added_turbulence_mixing(
-    turb_avg_vels, turbine_ti, flow_field_v, flow_field_w, turb_v, turb_w,
+    turb_avg_vels,
+    turbine_ti,
+    flow_field_v,
+    flow_field_w,
+    turb_v,
+    turb_w,
 ):
     # calculate fluctuations
     v_prime = flow_field_v + turb_v
@@ -749,7 +754,7 @@ def gauss_cumulative_vel_model(
         a2
         - (
             (n * turbine_Ct[:, :, :, ii, na, na][:, :, :, na, :, :])
-            * cosd(yaw_angle[:, :, :, ii, :, :][:, :, :, na, :, :])
+            * cosd(turbine_yaw[:, :, :, ii, :, :][:, :, :, na, :, :])
             / (
                 16.0
                 * gamma(2 / n)
@@ -781,7 +786,7 @@ def gauss_cumulative_vel_model(
 
     yR = mesh_y_rotated - y_coord_rotated[:, :, :, ii, :, :][:, :, :, na, :, :]
     xR = (
-        yR * tand(yaw_angle[:, :, :, ii, :, :][:, :, :, na, :, :])
+        yR * tand(turbine_yaw[:, :, :, ii, :, :][:, :, :, na, :, :])
         + x_coord_rotated[:, :, :, ii, :, :][:, :, :, na, :, :]
     )
 
@@ -1068,8 +1073,16 @@ def initialize_flow_field(
 
     # TODO: would it be simpler to create rotor points inherently rotated to be
     # perpendicular to the wind
-    yt = np.linspace(x2 - pt, x2 + pt, y_ngrid,)
-    zt = np.linspace(x3 - pt, x3 + pt, z_ngrid,)
+    yt = np.linspace(
+        x2 - pt,
+        x2 + pt,
+        y_ngrid,
+    )
+    zt = np.linspace(
+        x3 - pt,
+        x3 + pt,
+        z_ngrid,
+    )
 
     x_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * x_coord[:, na, na]
     y_grid = np.ones((len(x_coord), y_ngrid, z_ngrid)) * yt.T[:, :, na]
@@ -1333,7 +1346,10 @@ for i in range(len(x_coord)):
     )
 
     # Combine turbine TIs with WAT
-    turb_TIs = np.maximum(np.sqrt(ti_added ** 2 + ambient_TIs ** 2), turb_TIs,)
+    turb_TIs = np.maximum(
+        np.sqrt(ti_added ** 2 + ambient_TIs ** 2),
+        turb_TIs,
+    )
 
 flow_field_u = flow_field_u_initial - turb_u_wake
 
