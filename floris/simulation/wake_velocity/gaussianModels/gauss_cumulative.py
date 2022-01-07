@@ -162,6 +162,20 @@ class GaussCumulative(GaussianModel):
         sorted_map = kwargs["sorted_map"]
         u_wake = kwargs["u_wake"]
         Ctmp = kwargs["Ctmp"]
+
+        # Enable YAR
+        # added turbulence model
+        self.gch_gain = 1.0
+        TI = turbine.current_turbulence_intensity
+
+        TI_mixing = self.yaw_added_turbulence_mixing(
+            turbine_coord, turbine, flow_field, x_locations, y_locations, z_locations
+        )
+        turbine.current_turbulence_intensity = (
+            turbine.current_turbulence_intensity + self.gch_gain * TI_mixing
+        )
+
+
         TI = copy.deepcopy(turbine.current_turbulence_intensity)
         # self.sigma_gch = True
         if self.sigma_gch is True:
