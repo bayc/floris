@@ -310,10 +310,10 @@ class Gauss(VelocityDeflection):
                 (HH - D / 2) / flow_field.specified_wind_height
             ) ** flow_field.wind_shear
             Gamma_top = (
-                (np.pi / 8) * D * vel_top * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
+                (np.pi / 4) * D * vel_top * Uinf * Ct * sind(test_yaw) * cosd(test_yaw)
             )
             Gamma_bottom = (
-                -(np.pi / 8)
+                -(np.pi / 4)
                 * D
                 * vel_bottom
                 * Uinf
