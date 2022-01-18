@@ -214,7 +214,7 @@ class GaussianModel(VelocityDeficit):
         # flow parameters
         Uinf = np.mean(flow_field.wind_map.grid_wind_speed)
 
-        scale = 1.0
+        scale = 2.0
         vel_top = (
             Uinf
             * ((HH + D / 2) / flow_field.specified_wind_height) ** flow_field.wind_shear
