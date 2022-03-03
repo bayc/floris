@@ -33,7 +33,8 @@ from floris.simulation import (
     sequential_solver,
     cc_solver,
     full_flow_sequential_solver,
-    full_flow_cc_solver
+    full_flow_cc_solver,
+    turbopark_solver,
 )
 from attrs import define, field
 
@@ -141,6 +142,13 @@ class Floris(logging_manager.LoggerBase, FromDictMixin):
 
         if vel_model=="cc":
             elapsed_time = cc_solver(
+                self.farm,
+                self.flow_field,
+                self.grid,
+                self.wake
+            )
+        if vel_model=="turbopark":
+            elapsed_time = turbopark_solver(
                 self.farm,
                 self.flow_field,
                 self.grid,
