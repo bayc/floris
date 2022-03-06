@@ -147,7 +147,7 @@ class Floris(logging_manager.LoggerBase, FromDictMixin):
                 self.grid,
                 self.wake
             )
-        if vel_model=="turbopark":
+        elif vel_model=="turbopark":
             elapsed_time = turbopark_solver(
                 self.farm,
                 self.flow_field,
