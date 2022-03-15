@@ -50,7 +50,7 @@ class TurbOParkVelocityDeficit(BaseModel):
         radius_down = mat['overlap_lookup_table'][0][0][1][0]
         overlap_gauss = mat['overlap_lookup_table'][0][0][2]
 
-        self.overlap_gauss_interp = RegularGridInterpolator((dist, radius_down), overlap_gauss, method='linear')
+        self.overlap_gauss_interp = RegularGridInterpolator((dist, radius_down), overlap_gauss, method='linear', bounds_error=False)
         return kwargs
 
     # @profile
@@ -105,23 +105,16 @@ class TurbOParkVelocityDeficit(BaseModel):
         is_overlapping = effective_width / 2 + rotor_diameter_i / 2 > r_dist
 
         wtg_overlapping = np.array(x_dist > 0) * is_overlapping
-        wtg_overlapping_idx = np.argwhere(wtg_overlapping)
 
-        if wtg_overlapping.any():
-            delta_real = np.empty(np.shape(u_initial)) * np.nan
-            delta_image = np.empty(np.shape(u_initial)) * np.nan
-            for j in wtg_overlapping_idx:
-                sigma_j = sigma[j[0], j[1], j[2], j[3], j[4]]
-                r_dist_j = r_dist[j[0], j[1], j[2], j[3], j[4]]
-                r_dist_image_j = r_dist_image[j[0], j[1], j[2], j[3], j[4]]
-                C_j = C[j[0], j[1], j[2], j[3], j[4]] * is_overlapping[j[0], j[1], j[2], j[3], j[4]]
+        delta_real = np.empty(np.shape(u_initial)) * np.nan
+        delta_image = np.empty(np.shape(u_initial)) * np.nan
 
-                delta_real[j[0], j[1], j[2], j[3], j[4]] = C_j * self.overlap_gauss_interp((r_dist_j / sigma_j, rotor_diameter_i / 2 / sigma_j))
-                delta_image[j[0], j[1], j[2], j[3], j[4]] = C_j * self.overlap_gauss_interp((r_dist_image_j / sigma_j, rotor_diameter_i / 2 / sigma_j))
+        delta_real = C * self.overlap_gauss_interp((r_dist / sigma, rotor_diameter_i / 2 / sigma)) * wtg_overlapping
+        delta_image = C * self.overlap_gauss_interp((r_dist_image / sigma, rotor_diameter_i / 2 / sigma)) * wtg_overlapping
+        delta = np.concatenate((delta_real, delta_image), axis=2)
 
-            delta = np.concatenate((delta_real, delta_image), axis=2)
-    
-            delta_total[:, :, i, :, :] = np.sqrt(np.sum(np.nan_to_num(delta)**2, axis=2))
+        delta_total[:, :, i, :, :] = np.sqrt(np.sum(np.nan_to_num(delta)**2, axis=2))
+
         return delta_total          
 
 
