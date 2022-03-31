@@ -56,7 +56,7 @@ class TurbOParkVelocityDeficit(BaseModel):
             x=grid.x,
             y=grid.y,
             z=grid.z,
-            u_initial=flow_field.u_initial,
+            u_initial=flow_field.u_initial_sorted,
         )
         return kwargs
 
