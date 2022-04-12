@@ -149,7 +149,7 @@ def sequential_solver(farm: Farm, flow_field: FlowField, grid: TurbineGrid, mode
             I_mixing = yaw_added_turbulence_mixing(
                 u_i,
                 turbulence_intensity_i,
-                v_i,
+                v_i - flow_field.v_initial_sorted[:, :, i:i+1],
                 flow_field.w_sorted[:, :, i:i+1],
                 v_wake[:, :, i:i+1],
                 w_wake[:, :, i:i+1],
@@ -481,7 +481,7 @@ def cc_solver(farm: Farm, flow_field: FlowField, grid: TurbineGrid, model_manage
             I_mixing = yaw_added_turbulence_mixing(
                 u_i,
                 turbulence_intensity_i,
-                v_i,
+                v_i - flow_field.v_initial_sorted[:, :, i:i+1],
                 flow_field.w_sorted[:, :, i:i+1],
                 v_wake[:, :, i:i+1],
                 w_wake[:, :, i:i+1],
@@ -798,7 +798,7 @@ def turbopark_solver(farm: Farm, flow_field: FlowField, grid: TurbineGrid, model
             I_mixing = yaw_added_turbulence_mixing(
                 u_i,
                 turbulence_intensity_i,
-                v_i,
+                v_i - flow_field.v_initial_sorted[:, :, i:i+1],
                 flow_field.w_sorted[:, :, i:i+1],
                 v_wake[:, :, i:i+1],
                 w_wake[:, :, i:i+1],

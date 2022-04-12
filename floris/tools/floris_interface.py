@@ -60,7 +60,7 @@ class FlorisInterface(LoggerBase):
                 - **logging**: See `floris.simulation.floris.Floris` for more details.
     """
 
-    def __init__(self, configuration: dict | str | Path, het_map=None):
+    def __init__(self, configuration: dict | str | Path, het_map_x=None, het_map_y=None):
         self.configuration = configuration
 
         if isinstance(self.configuration, (str, Path)):
@@ -73,10 +73,12 @@ class FlorisInterface(LoggerBase):
             raise TypeError("The Floris `configuration` must of type 'dict', 'str', or 'Path'.")
 
         # Store the heterogeneous map for use after reinitailization
-        self.het_map = het_map
+        self.het_map_x = het_map_x
+        self.het_map_y = het_map_y
         # Assign the heterogeneous map to the flow field
         # Needed for a direct call to fi.calculate_wake without fi.reinitialize
-        self.floris.flow_field.het_map = het_map
+        self.floris.flow_field.het_map_x = het_map_x
+        self.floris.flow_field.het_map_y = het_map_y
 
         # If ref height is -1, assign the hub height
         if self.floris.flow_field.reference_wind_height == -1:
@@ -233,7 +235,8 @@ class FlorisInterface(LoggerBase):
         # Create a new instance of floris and attach to self
         self.floris = Floris.from_dict(floris_dict)
         # Re-assign the hetergeneous inflow map to flow field
-        self.floris.flow_field.het_map = self.het_map
+        self.floris.flow_field.het_map_x = self.het_map_x
+        self.floris.flow_field.het_map_y = self.het_map_y
 
     def get_plane_of_points(
         self,
@@ -384,7 +387,8 @@ class FlorisInterface(LoggerBase):
 
         # Reset the fi object back to the turbine grid configuration
         self.floris = Floris.from_dict(floris_dict)
-        self.floris.flow_field.het_map = self.het_map
+        self.floris.flow_field.het_map_x = self.het_map_x
+        self.floris.flow_field.het_map_y = self.het_map_y
 
         # Run the simulation again for futher postprocessing (i.e. now we can get farm power)
         self.calculate_wake(yaw_angles=current_yaw_angles)
@@ -464,7 +468,8 @@ class FlorisInterface(LoggerBase):
 
         # Reset the fi object back to the turbine grid configuration
         self.floris = Floris.from_dict(floris_dict)
-        self.floris.flow_field.het_map = self.het_map
+        self.floris.flow_field.het_map_x = self.het_map_x
+        self.floris.flow_field.het_map_y = self.het_map_y
 
         # Run the simulation again for futher postprocessing (i.e. now we can get farm power)
         self.calculate_wake(yaw_angles=current_yaw_angles)
@@ -544,7 +549,8 @@ class FlorisInterface(LoggerBase):
 
         # Reset the fi object back to the turbine grid configuration
         self.floris = Floris.from_dict(floris_dict)
-        self.floris.flow_field.het_map = self.het_map
+        self.floris.flow_field.het_map_x = self.het_map_x
+        self.floris.flow_field.het_map_y = self.het_map_y
 
         # Run the simulation again for futher postprocessing (i.e. now we can get farm power)
         self.calculate_wake(yaw_angles=current_yaw_angles)

@@ -48,7 +48,8 @@ class FlowField(FromDictMixin):
     u: NDArrayFloat = field(init=False, default=np.array([]))
     v: NDArrayFloat = field(init=False, default=np.array([]))
     w: NDArrayFloat = field(init=False, default=np.array([]))
-    het_map: list = field(init=False, default=None)
+    het_map_x: list = field(init=False, default=None)
+    het_map_y: list = field(init=False, default=None)
 
     turbulence_intensity_field: NDArrayFloat = field(init=False, default=np.array([]))
 
@@ -76,25 +77,31 @@ class FlowField(FromDictMixin):
         wind_profile_plane = (grid.z_sorted / self.reference_wind_height) ** self.wind_shear
 
         # If no hetergeneous inflow defined, then set all speeds ups to 1.0
-        if self.het_map is None:
-            speed_ups = 1.0
-
+        if self.het_map_x is None:
+            speed_ups_x = 1.0
         # If heterogeneous flow data is given, the speed ups at the defined
         # grid locations are determined in either 2 or 3 dimensions.
         else:
-            if len(self.het_map[0][0].points[0]) == 2:
-                speed_ups = self.calculate_speed_ups(self.het_map, grid.x_sorted, grid.y_sorted)
-            elif len(self.het_map[0][0].points[0]) == 3:
-                speed_ups = self.calculate_speed_ups(self.het_map, grid.x_sorted, grid.y_sorted, grid.z_sorted)
+            if len(self.het_map_x[0][0].points[0]) == 2:
+                speed_ups_x = self.calculate_speed_ups(self.het_map_x, grid.x_sorted, grid.y_sorted)
+            elif len(self.het_map_x[0][0].points[0]) == 3:
+                speed_ups_x = self.calculate_speed_ups(self.het_map_x, grid.x_sorted, grid.y_sorted, grid.z_sorted)
 
+        if self.het_map_y is None:
+            speed_ups_y = 0.0
+        else:
+            if len(self.het_map_y[0][0].points[0]) == 2:
+                speed_ups_y = self.calculate_speed_ups(self.het_map_y, grid.x_sorted, grid.y_sorted)
+            elif len(self.het_map_y[0][0].points[0]) == 3:
+                speed_ups_y = self.calculate_speed_ups(self.het_map_y, grid.x_sorted, grid.y_sorted, grid.z_sorted)
         # Create the sheer-law wind profile
         # This array is of shape (# wind directions, # wind speeds, grid.template_array)
         # Since generally grid.template_array may be many different shapes, we use transposes
         # here to do broadcasting from left to right (transposed), and then transpose back.
         # The result is an array the wind speed and wind direction dimensions on the left side
         # of the shape and the grid.template array on the right
-        self.u_initial_sorted = (self.wind_speeds[None, :].T * wind_profile_plane.T).T * speed_ups
-        self.v_initial_sorted = np.zeros(np.shape(self.u_initial_sorted), dtype=self.u_initial_sorted.dtype)
+        self.u_initial_sorted = (self.wind_speeds[None, :].T * wind_profile_plane.T).T * speed_ups_x
+        self.v_initial_sorted = np.ones(np.shape(self.u_initial_sorted), dtype=self.u_initial_sorted.dtype) * speed_ups_y
         self.w_initial_sorted = np.zeros(np.shape(self.u_initial_sorted), dtype=self.u_initial_sorted.dtype)
 
         self.u_sorted = self.u_initial_sorted.copy()
