@@ -83,7 +83,7 @@ class Optimization(LoggerBase):
             self.optOptions = optOptions
         else:
             if self.solver == "SNOPT":
-                self.optOptions = {"Major optimality tolerance": 1e-7}
+                self.optOptions = {"Major optimality tolerance": 1e-7, "Major iterations limit": 80}
             else:
                 self.optOptions = {}
 

@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, Point, LineString
 from scipy.spatial.distance import cdist
+from floris.tools.visualization import visualize_cut_plane
 
 def _norm(val, x1, x2):
         return (val - x1) / (x2 - x1)
@@ -186,6 +187,54 @@ class Layout:
                 )
 
         plt.show()
+
+    def plot_layout_opt_results_with_flow(self, sol, file_name):
+        """
+        Method to plot the old and new locations of the layout opitimization.
+        """
+        locsx = _unnorm(sol.getDVs()["x"], self.xmin, self.xmax)
+        locsy = _unnorm(sol.getDVs()["y"], self.ymin, self.ymax)
+        x0 = _unnorm(self.x0, self.xmin, self.xmax)
+        y0 = _unnorm(self.y0, self.ymin, self.ymax)
+
+        self.fi.reinitialize(layout=[np.array(locsx), np.array(locsy)])
+        self.fi.calculate_wake()
+        power = self.fi.get_farm_power()
+
+        horizontal_plane_2d = self.fi.calculate_horizontal_plane(x_resolution=200, y_resolution=200, height=90.0, x_bounds=(-1260.0, 1260.0), y_bounds=(-1260.0, 1260.0))
+
+        # plt.figure(figsize=(9, 6))
+        visualize_cut_plane(horizontal_plane_2d, color_bar=True)
+
+        fontsize = 16
+        plt.plot(x0, y0, "ob")
+        plt.plot(locsx, locsy, "or")
+        # plt.title('Layout Optimization Results', fontsize=fontsize)
+        plt.xlabel("x (m)", fontsize=fontsize)
+        plt.ylabel("y (m)", fontsize=fontsize)
+        plt.axis("equal")
+        # plt.grid()
+        plt.tick_params(which="both", labelsize=fontsize)
+        plt.legend(
+            ["Old locations", "New locations"],
+            loc="lower center",
+            bbox_to_anchor=(0.5, 1.01),
+            ncol=2,
+            fontsize=fontsize,
+        )
+
+        verts = self.boundaries
+        for i in range(len(verts)):
+            if i == len(verts) - 1:
+                plt.plot([verts[i][0], verts[0][0]], [verts[i][1], verts[0][1]], "b")
+            else:
+                plt.plot(
+                    [verts[i][0], verts[i + 1][0]], [verts[i][1], verts[i + 1][1]], "b"
+                )
+
+        plt.savefig(file_name)
+        # plt.show()
+        return locsx, locsy, power
 
     ###########################################################################
     # Properties
