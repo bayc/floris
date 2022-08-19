@@ -280,12 +280,11 @@ class FlowFieldGrid(Grid):
         zmin = 0 + eps
         zmax = 6 * max(z[0,0])
 
-        x_points, y_points, z_points = np.meshgrid(
-            np.linspace(xmin, xmax, int(self.grid_resolution[0])),
-            np.linspace(ymin, ymax, int(self.grid_resolution[1])),
-            np.linspace(zmin, zmax, int(self.grid_resolution[2])),
-            indexing="ij"
-        )
+        Lx, self.dx = np.linspace(xmin, xmax, int(self.grid_resolution[0]), retstep=True)
+        Ly, self.dy = np.linspace(ymin, ymax, int(self.grid_resolution[1]), retstep=True)
+        Lz, self.dz = np.linspace(zmin, zmax, int(self.grid_resolution[2]), retstep=True)
+
+        x_points, y_points, z_points = np.meshgrid(Lx, Ly, Lz, indexing="ij")
 
         self.x_sorted = x_points[None, None, :, :, :]
         self.y_sorted = y_points[None, None, :, :, :]
