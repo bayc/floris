@@ -932,3 +932,77 @@ def full_flow_turbopark_solver(farm: Farm, flow_field: FlowField, flow_field_gri
     # flow_field_grid.x = copy.deepcopy(turbine_grid.x)
     # flow_field_grid.y = copy.deepcopy(turbine_grid.y)
     # flow_field_grid.z = copy.deepcopy(turbine_grid.z)
+
+
+def curl_farm_solver(farm: Farm, flow_field: FlowField, grid: FlowFieldGrid, model_manager: WakeModelManager) -> None:
+    # Algorithm
+    # For each turbine, calculate its effect on every downstream turbine.
+    # For the current turbine, we are calculating the deficit that it adds to downstream turbines.
+    # Integrate this into the main data structure.
+    # Move on to the next turbine.
+
+    # <<interface>>
+    # deflection_model_args = model_manager.deflection_model.prepare_function(grid, flow_field)
+    deficit_model_args = model_manager.velocity_model.prepare_function(grid, flow_field)
+
+    # This is u_wake
+    wake_field = np.zeros_like(flow_field.u_initial_sorted)
+    v_wake = np.zeros_like(flow_field.v_initial_sorted)
+    w_wake = np.zeros_like(flow_field.w_initial_sorted)
+
+    turbine_turbulence_intensity = flow_field.turbulence_intensity * np.ones((flow_field.n_wind_directions, flow_field.n_wind_speeds, farm.n_turbines, 1, 1))
+    ambient_turbulence_intensity = flow_field.turbulence_intensity
+
+    # Calculate the velocity deficit sequentially from upstream to downstream turbines
+    for i in range(grid.grid_resolution[0] - 1):
+
+        # Get the current turbine quantities
+        x_i = np.mean(grid.x_sorted[:, :, i:i+1], axis=(3, 4))
+        x_i = x_i[:, :, :, None, None]
+        y_i = np.mean(grid.y_sorted[:, :, i:i+1], axis=(3, 4))        
+        y_i = y_i[:, :, :, None, None]
+        z_i = np.mean(grid.z_sorted[:, :, i:i+1], axis=(3, 4))
+        z_i = z_i[:, :, :, None, None]
+
+        u_i = flow_field.u_sorted[:, :, i:i+1]
+        v_i = flow_field.v_sorted[:, :, i:i+1]
+
+        ct_i = Ct(
+            velocities=flow_field.u_sorted,
+            yaw_angle=farm.yaw_angles_sorted,
+            fCt=farm.turbine_fCts,
+            turbine_type_map=farm.turbine_type_map_sorted,
+            ix_filter=[i],
+        )
+        ct_i = ct_i[:, :, 0:1, None, None]  # Since we are filtering for the i'th turbine in the Ct function, get the first index here (0:1)
+        axial_induction_i = axial_induction(
+            velocities=flow_field.u_sorted,
+            yaw_angle=farm.yaw_angles_sorted,
+            fCt=farm.turbine_fCts,
+            turbine_type_map=farm.turbine_type_map_sorted,
+            ix_filter=[i],
+        )
+        axial_induction_i = axial_induction_i[:, :, 0:1, None, None]    # Since we are filtering for the i'th turbine in the axial induction function, get the first index here (0:1)
+        turbulence_intensity_i = turbine_turbulence_intensity[:, :, i:i+1]
+        yaw_angle_i = farm.yaw_angles_sorted[:, :, i:i+1, None, None]
+        hub_height_i = farm.hub_heights_sorted[: ,:, i:i+1, None, None]
+        rotor_diameter_i = farm.rotor_diameters_sorted[: ,:, i:i+1, None, None]
+        TSR_i = farm.TSRs_sorted[: ,:, i:i+1, None, None]
+
+        # NOTE: exponential
+        uw_prev = model_manager.velocity_model.function(
+            x_i,
+            y_i,
+            grid,
+            flow_field,
+            farm,
+            i,
+            uw_prev,
+            hub_height_i,
+            rotor_diameter_i,
+            **deficit_model_args
+        )
+
+    flow_field.u_sorted = flow_field.u_initial_sorted + flow_field.uw
+    flow_field.v_sorted += v_wake
+    flow_field.w_sorted += w_wake

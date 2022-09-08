@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import yaml
+from floris.simulation.solver import curl_farm_solver
 from floris.utilities import load_yaml
 
 import floris.logging_manager as logging_manager
@@ -33,6 +34,7 @@ from floris.simulation import (
     sequential_solver,
     cc_solver,
     turbopark_solver,
+    curl_farm_solver,
     full_flow_sequential_solver,
     full_flow_cc_solver,
     full_flow_turbopark_solver,
@@ -159,6 +161,13 @@ class Floris(BaseClass):
             )
         elif vel_model=="turbopark":
             elapsed_time = turbopark_solver(
+                self.farm,
+                self.flow_field,
+                self.grid,
+                self.wake
+            )
+        elif vel_model=="curl_farm":
+            elapsed_time = curl_farm_solver(
                 self.farm,
                 self.flow_field,
                 self.grid,

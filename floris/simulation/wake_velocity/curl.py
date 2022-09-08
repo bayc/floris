@@ -61,9 +61,9 @@ class CurledWakeVelocityDeficit(BaseModel):
         cf: float = field(default=2.)
     ):
         # Write the advecting velocities
-        U = flow_field.u_initial_sorted
-        V = flow_field.v_initial_sorted
-        W = flow_field.w_initial_sorted
+        U = flow_field.u_initial_sorted[:,:,i:i+1,:,:]
+        V = flow_field.v_initial_sorted[:,:,i:i+1,:,:]
+        W = flow_field.w_initial_sorted[:,:,i:i+1,:,:]
 
         # uw_prev =  (flow_field.u_sorted[:,:,i-1,:,:] - flow_field.u_initial_sorted[:,:,i-1,:,:])[:,:,None,:,:]
 
@@ -99,13 +99,13 @@ class CurledWakeVelocityDeficit(BaseModel):
         # Add the new added wake
         for j, n in enumerate(self.activate):
             if n == i:
-                ct_i = Ct(
-                    velocities=U + uwi,
-                    yaw_angle=farm.yaw_angles_sorted,
-                    fCt=farm.turbine_fCts,
-                    turbine_type_map=farm.turbine_type_map_sorted,
-                    ix_filter=[j],
-                )
+                # ct_i = Ct(
+                #     velocities=U + uwi,
+                #     yaw_angle=farm.yaw_angles_sorted,
+                #     fCt=farm.turbine_fCts,
+                #     turbine_type_map=farm.turbine_type_map_sorted,
+                #     ix_filter=[j],
+                # )
 
                 print('Activating turbine', str(j))
                 # Point to the turbine object
@@ -119,7 +119,7 @@ class CurledWakeVelocityDeficit(BaseModel):
                 # within a certain distance of the rotor
                 # ~ cond = np.argwhere(np.abs(self.Y - t.location[1]) < t.D * 2)
                 # ~ cond = np.where(np.abs(self.Y - t.location[1]) < t.D * 2)
-                cond = np.asarray((np.abs(self.Y - t.location[1]) < (t.D * cf))).nonzero()
+                # cond = np.asarray((np.abs(self.Y - t.location[1]) < (t.D * cf))).nonzero()
 
                 # TODO: add back in
                 # Add the effct of curl
@@ -152,14 +152,16 @@ class CurledWakeVelocityDeficit(BaseModel):
 
         #~ print(np.shape(uwi))
         # Add the new time
-        self.uw.append(uwi)
-        self.vw.append(V)
-        self.ww.append(W)
+        flow_field.uw.append(uwi)
+        flow_field.vw.append(V)
+        flow_field.ww.append(W)
 
         # Store the previous xi
-        xi = xi1
+        # xi = xi1
 
-        return xi
+        # return xi
+
+        return uwi
 
 
     def initial_condition(self, Y, Z, U, farm, j, sigma=2):
@@ -186,11 +188,11 @@ class CurledWakeVelocityDeficit(BaseModel):
         r2 = np.sqrt(Y**2 + Zt**2) # + xp**2)
 
         # The values inside the rotor
-        condition = np.where(r2 <= self.D/2)
+        # condition = np.where(r2[:,:,j:j+1,:,:] <= self.D/2)
         
         # The average velocity at the rotor plane used to compute the induced
         #   velocity in the wake
-        self.Uh = average_velocity(turb_inflow_field)
+        # self.Uh = average_velocity(U[:,:,j:j+1,:,:][condition])
         
         # Compute the mean velocity
         # Compute the ct and cp
