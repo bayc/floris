@@ -113,59 +113,60 @@ for i in range(n_cases):
             print(x, y)
             break
 
-    data = pd.read_csv('windse_flows/hh_90_vel.csv')
+    if i == 2:
+        data = pd.read_csv('windse_flows/hh_90_vel.csv')
 
-    # print(data)
-    speed_ups = data['velocity:0'] / 8.0
-    x_locs = data['Points:0']
-    y_locs = data['Points:1']
+        # print(data)
+        speed_ups = data['velocity:0'] / 8.0
+        x_locs = data['Points:0']
+        y_locs = data['Points:1']
 
-    # Generate the linear interpolation to be used for the heterogeneous inflow.
-    het_map_2d = generate_heterogeneous_wind_map([speed_ups], x_locs, y_locs)
+        # Generate the linear interpolation to be used for the heterogeneous inflow.
+        het_map_2d = generate_heterogeneous_wind_map([speed_ups], x_locs, y_locs)
 
-    # Initialize FLORIS with the given input file via FlorisInterface.
-    # Also, pass the heterogeneous map into the FlorisInterface.
-    fi = FlorisInterface("../inputs/gch.yaml", het_map=het_map_2d)
+        # Initialize FLORIS with the given input file via FlorisInterface.
+        # Also, pass the heterogeneous map into the FlorisInterface.
+        fi = FlorisInterface("../inputs/gch.yaml", het_map=het_map_2d)
 
-    # Set shear to 0.0 to highlight the heterogeneous inflow
-    fi.reinitialize(wind_shear=0.0)
+        # Set shear to 0.0 to highlight the heterogeneous inflow
+        fi.reinitialize(wind_shear=0.0)
 
-    # Setup 72 wind directions with a random wind speed and frequency distribution
-    # wind_directions = np.arange(0, 360.0, 5.0)
-    # np.random.seed(1)
-    # wind_speeds = 8.0 + np.random.randn(1) * 0.5
-    # freq = np.abs(np.sort(np.random.randn(len(wind_directions))))
-    # freq = freq / freq.sum()
-    # fi.reinitialize(wind_directions=wind_directions, wind_speeds=wind_speeds)
+        # Setup 72 wind directions with a random wind speed and frequency distribution
+        # wind_directions = np.arange(0, 360.0, 5.0)
+        # np.random.seed(1)
+        # wind_speeds = 8.0 + np.random.randn(1) * 0.5
+        # freq = np.abs(np.sort(np.random.randn(len(wind_directions))))
+        # freq = freq / freq.sum()
+        # fi.reinitialize(wind_directions=wind_directions, wind_speeds=wind_speeds)
 
-    freq = np.array([1.0])
+        freq = np.array([1.0])
 
-    scale = 2
+        scale = 2
 
-    # The boundaries for the turbines, specified as vertices
-    boundaries = [(-1260.0/scale, -1260.0/scale), (-1260.0/scale, 1260.0/scale), (1260.0/scale, 1260.0/scale), (1260.0/scale, -1260.0/scale), (-1260.0/scale, -1260.0/scale)]
+        # The boundaries for the turbines, specified as vertices
+        boundaries = [(-1260.0/scale, -1260.0/scale), (-1260.0/scale, 1260.0/scale), (1260.0/scale, 1260.0/scale), (1260.0/scale, -1260.0/scale), (-1260.0/scale, -1260.0/scale)]
 
-    # Set turbine locations to 4 turbines in a rectangle
-    D = 126.0 # rotor diameter for the NREL 5MW
-    # layout_x = [-5 * D, -5 * D, 0 * D, 0 * D]
-    # layout_y = [-5 * D, 5 * D, -1.0 * D, 1.0 * D]
+        # Set turbine locations to 4 turbines in a rectangle
+        D = 126.0 # rotor diameter for the NREL 5MW
+        # layout_x = [-5 * D, -5 * D, 0 * D, 0 * D]
+        # layout_y = [-5 * D, 5 * D, -1.0 * D, 1.0 * D]
 
-    layout_x = x
-    layout_y = y
+        layout_x = x
+        layout_y = y
 
-    fi.reinitialize(layout=(layout_x, layout_y))
-    fi.calculate_wake()
-    base_power = fi.get_farm_power()
+        fi.reinitialize(layout=(layout_x, layout_y))
+        fi.calculate_wake()
+        base_power = fi.get_farm_power()
 
-    # Setup the optimization problem
-    model = opt.layout.Layout(fi, boundaries, freq)
-    tmp = opt.optimization.Optimization(model=model, solver='SNOPT')
+        # Setup the optimization problem
+        model = opt.layout.Layout(fi, boundaries, freq)
+        tmp = opt.optimization.Optimization(model=model, solver='SNOPT')
 
-    # Run the optimization
-    sol = tmp.optimize()
+        # Run the optimization
+        sol = tmp.optimize()
 
-    # Print and plot the results
-    print(sol)
-    locsx, locsy, power = model.plot_layout_opt_results_with_flow(sol, file_name=file_name)
+        # Print and plot the results
+        print(sol)
+        locsx, locsy, power = model.plot_layout_opt_results_with_flow(sol, file_name=file_name)
 
-    print(layout_x, layout_y, locsx, locsy, power, base_power)
+        print(layout_x, layout_y, locsx, locsy, power, base_power)
