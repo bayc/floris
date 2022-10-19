@@ -27,8 +27,9 @@ from floris.simulation import Ct, axial_induction
 from floris.simulation.turbine import average_velocity
 from scipy.ndimage.filters import gaussian_filter
 
-
+@define
 class CurledWakeVelocityDeficit(BaseModel):
+    nu: float = field(init=False)
 
     def __attrs_post_init__(self) -> None:
         # Reynolds number used for stability
@@ -41,15 +42,20 @@ class CurledWakeVelocityDeficit(BaseModel):
         self.nu = self.Uh * self.h / Re
 
         # Identify the point in the x location where the wake is active
+        # TODO: move this and above into the prepare function so we can access turbine information
         self.activate = [
             np.argmin(np.abs(self.x - t.location[0])) for t in self.turbines
         ]
 
+    def prepare_function(
+        self,
+    ):
+        pass
 
     def function(
         self,
-        xi1: np.ndarray,
-        xi: np.ndarray,
+        # xi1: np.ndarray,
+        # xi: np.ndarray,
         grid: Grid,
         flow_field: FlowField,
         farm: Farm,

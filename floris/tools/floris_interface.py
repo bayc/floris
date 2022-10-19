@@ -133,6 +133,46 @@ class FlorisInterface(LoggerBase):
         # Perform the wake calculations
         self.floris.steady_state_atmospheric_condition()
 
+    def calculate_curl_wake(
+        self,
+        yaw_angles: NDArrayFloat | list[float] | None = None,
+        # points: NDArrayFloat | list[float] | None = None,
+        # track_n_upstream_wakes: bool = False,
+    ) -> None:
+        """
+        Wrapper to the :py:meth:`~.Farm.set_yaw_angles` and
+        :py:meth:`~.FlowField.calculate_wake` methods.
+
+        Args:
+            yaw_angles (NDArrayFloat | list[float] | None, optional): Turbine yaw angles.
+                Defaults to None.
+            points: (NDArrayFloat | list[float] | None, optional): The x, y, and z
+                coordinates at which the flow field velocity is to be recorded. Defaults
+                to None.
+            track_n_upstream_wakes (bool, optional): When *True*, will keep track of the
+                number of upstream wakes a turbine is experiencing. Defaults to *False*.
+        """
+        # self.floris.flow_field.calculate_wake(
+        #     no_wake=no_wake,
+        #     points=points,
+        #     track_n_upstream_wakes=track_n_upstream_wakes,
+        # )
+
+        # TODO decide where to handle this sign issue
+        if (yaw_angles is not None) and not (np.all(yaw_angles==0.)):
+            self.floris.farm.yaw_angles = yaw_angles
+
+        # Initialize solution space
+        self.floris.flow_field.initialize_velocity_field(self.floris.grid)
+
+        # Initialize farm quantities
+        # self.farm.initialize(self.grid.sorted_indices)
+
+        self.floris.state.INITIALIZED
+
+        # Perform the wake calculations
+        self.floris.steady_state_atmospheric_condition()
+
     def calculate_no_wake(
         self,
         yaw_angles: NDArrayFloat | list[float] | None = None,

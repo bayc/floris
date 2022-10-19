@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import yaml
-from floris.simulation.solver import curl_farm_solver
 from floris.utilities import load_yaml
 
 import floris.logging_manager as logging_manager
@@ -87,10 +86,11 @@ class Floris(BaseClass):
                 grid_resolution=self.solver["turbine_grid_points"],
                 time_series=self.flow_field.time_series,
             )
+        # TODO: make sure passing in just the first turbine rotor diamter below is ok
         elif self.solver["type"] == "flow_field_grid":
             self.grid = FlowFieldGrid(
                 turbine_coordinates=self.farm.coordinates,
-                reference_turbine_diameter=self.farm.rotor_diameters,
+                reference_turbine_diameter=self.farm.rotor_diameters[0],
                 wind_directions=self.flow_field.wind_directions,
                 wind_speeds=self.flow_field.wind_speeds,
                 grid_resolution=self.solver["flow_field_grid_points"],

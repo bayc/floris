@@ -247,9 +247,15 @@ class FlowFieldGrid(Grid):
         reference_turbine_diameter (:py:obj:`float`): The reference turbine's rotor diameter.
         grid_resolution (:py:obj:`int`): The number of points on each turbine
     """
+    dx: int = field(init=False) 
+    dy: int = field(init=False)
+    dz: int = field(init=False)
+    sorted_indices: NDArrayInt = field(init=False)
+    unsorted_indices: NDArrayInt = field(init=False)
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
+
         self.set_grid()
 
     def set_grid(self) -> None:
