@@ -103,15 +103,14 @@ def _rotor_velocity_tilt_correction(
     rotor_effective_velocities: NDArrayFloat,
 ) -> NDArrayFloat:
     # Compute the tilt, if using floating turbines
-    old_tilt_angle = copy.deepcopy(tilt_angle)
-    tilt_angle = compute_tilt_angles_for_floating_turbines(
+    new_tilt_angle = compute_tilt_angles_for_floating_turbines(
         turbine_type_map,
         tilt_angle,
         tilt_interp,
         rotor_effective_velocities,
     )
     # Only update tilt angle if requested (if the tilt isn't accounted for in the Cp curve)
-    tilt_angle = np.where(correct_cp_ct_for_tilt, tilt_angle, old_tilt_angle)
+    tilt_angle = np.where(correct_cp_ct_for_tilt, new_tilt_angle, tilt_angle)
 
     # Compute the rotor effective velocity adjusting for tilt
     rotor_effective_velocities = (
@@ -328,15 +327,14 @@ def Ct(
     average_velocities = average_velocity(velocities)
 
     # Compute the tilt, if using floating turbines
-    old_tilt_angle = copy.deepcopy(tilt_angle)
-    tilt_angle = compute_tilt_angles_for_floating_turbines(
+    new_tilt_angle = compute_tilt_angles_for_floating_turbines(
         turbine_type_map,
         tilt_angle,
         tilt_interp,
         average_velocities,
     )
     # Only update tilt angle if requested (if the tilt isn't accounted for in the Ct curve)
-    tilt_angle = np.where(correct_cp_ct_for_tilt, tilt_angle, old_tilt_angle)
+    tilt_angle = np.where(correct_cp_ct_for_tilt, new_tilt_angle, tilt_angle)
 
     # Loop over each turbine type given to get thrust coefficient for all turbines
     thrust_coefficient = np.zeros(np.shape(average_velocities))
