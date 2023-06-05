@@ -63,6 +63,9 @@ def _attr_floris_filter(inst: Attribute, value: Any) -> bool:
     if isinstance(value, np.ndarray):
         if value.size == 0:
             return False
+    # TODO: Needed as Posix cannot be written to yaml
+    if isinstance(value, Path):
+        return False
     return True
 
 def iter_validator(iter_type, item_types: Union[Any, Tuple[Any]]) -> Callable:
