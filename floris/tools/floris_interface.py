@@ -31,6 +31,7 @@ from floris.simulation.turbine import (
 )
 from floris.tools.cut_plane import CutPlane
 from floris.type_dec import NDArrayFloat
+from floris.utilities import load_yaml
 
 
 class FlorisInterface(LoggerBase):
@@ -988,6 +989,47 @@ class FlorisInterface(LoggerBase):
         else:
             return xcoords, ycoords
 
+    def read_windse_input(self, filename_in, filename_out=None):
+        """
+        Read in a WindSE input file to modify the layout of the current FlorisInterface object.
+
+        Args:
+            filename_in (str): Name of WindSE input file to read.
+            filename_out (str, optional): Name of FLORIS input file to save to. If not provided,
+            the current configuration will not be written to file. Defaults to None.
+        """
+        # Store FLORIS configuration as dictionary
+        floris_config = self.floris.as_dict()
+
+        # Read in the WindSE layout as a dictionary
+        wind_se_config = load_yaml(filename_in)
+
+        # Update the FLORIS configuration dictionary with the layout from the WindSE input file
+        for key, value in wind_se_config['farm'].items():
+            floris_config['farm'][key] = value
+
+        # Need to fix this bug that exports turbine_path when using floris.to_file
+        floris_config['farm'].pop('turbine_library_path', None)
+
+        # Initialize the current FlorisInterface object to update the layout
+        self.__init__(floris_config)
+
+        # If an ouput filename is provided, write the FLORIS input file to that filename
+        if filename_out is not None:
+            self.floris.to_file(filename_out)
+
+    def write_windse_input(self, filename_out):
+        """
+        Write out a .csv file containing the layout from FLORIS to be used by WindSE.
+
+        Args:
+            filename_out (str): Name of output file to be read by WindSE.
+        """
+        # Create the array containing the FLORIS layout
+        data_out = np.array((self.layout_x, self.layout_y))
+
+        # Write it to a .csv file readable by WindSE
+        np.savetxt(filename_out, data_out.T, delimiter=', ', header='x, y')
 
 ## Functionality removed in v3
 
