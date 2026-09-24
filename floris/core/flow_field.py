@@ -340,20 +340,6 @@ class FlowField(BaseClass):
             sector_average_ws[:, i, 2] = np.mean(vels[:, :, 0], axis=1)     # Down
             sector_average_ws[:, i, 1] = np.mean(vels[:, 0, :], axis=1)     # Left
 
-            # weighted average
-            # self.core.flow_field.SAWS[:, i, 0] = (
-            #     0.5 * vels[0, 0, 0] + vels[0, 0, 1] + 0.5 * vels[0, 0, 2]
-            # ) / 2
-            # self.core.flow_field.SAWS[:, i, 1] = (
-            #     0.5 * vels[0, 0, 2] + vels[0, 1, 2] + 0.5 * vels[0, 2, 2]
-            # ) / 2
-            # self.core.flow_field.SAWS[:, i, 2] = (
-            #     0.5 * vels[0, 2, 0] + vels[0, 2, 1] + 0.5 * vels[0, 2, 2]
-            # ) / 2
-            # self.core.flow_field.SAWS[:, i, 3] = (
-            #     0.5 * vels[0, 0, 0] + vels[0, 1, 0] + 0.5 * vels[0, 2, 0]
-            # ) / 2
-
         return sector_average_ws
 
     def get_sector_averaged_turbine_TIs(self, unsorted_indices) -> NDArrayFloat:
@@ -375,20 +361,6 @@ class FlowField(BaseClass):
             sector_average_TI[:, i, 3] = np.mean(TIs[:, -1, :], axis=1)     # Right
             sector_average_TI[:, i, 2] = np.mean(TIs[:, :, 0], axis=1)      # Down
             sector_average_TI[:, i, 1] = np.mean(TIs[:, 0, :], axis=1)      # Left
-
-            # weighted average
-            # self.core.flow_field.SATI[:, i, 0] = (
-            #     0.5 * TIs[0, 0, 0] + TIs[0, 0, 1] + 0.5 * TIs[0, 0, 2]
-            # ) / 2
-            # self.core.flow_field.SATI[:, i, 1] = (
-            #     0.5 * TIs[0, 0, 2] + TIs[0, 1, 2] + 0.5 * TIs[0, 2, 2]
-            # ) / 2
-            # self.core.flow_field.SATI[:, i, 2] = (
-            #     0.5 * TIs[0, 2, 0] + TIs[0, 2, 1] + 0.5 * TIs[0, 2, 2]
-            # ) / 2
-            # self.core.flow_field.SATI[:, i, 3] = (
-            #     0.5 * TIs[0, 0, 0] + TIs[0, 1, 0] + 0.5 * TIs[0, 2, 0]
-            # ) / 2
 
         return sector_average_TI
 
