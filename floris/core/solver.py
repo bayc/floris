@@ -263,6 +263,8 @@ def sequential_solver(
 
     flow_field.turbulence_intensity_field_sorted = turbine_turbulence_intensity
     if model_manager.enable_turbine_turbulence_grid:
+        # An approximate method to account for scaling of turbulence intensity with
+        # the local flow velocity. Unvalidated method used for informing surrogate models.
         flow_field.turbulence_wake_mixing_sorted = (
             turbine_turbulence_intensity * flow_field.u_initial_sorted / flow_field.u_sorted
         )
@@ -712,6 +714,8 @@ def cc_solver(
 
     flow_field.turbulence_intensity_field_sorted = turbine_turbulence_intensity
     if model_manager.enable_turbine_turbulence_grid:
+        # An approximate method to account for scaling of turbulence intensity with
+        # the local flow velocity. Unvalidated method used for informing surrogate models.
         flow_field.turbulence_wake_mixing_sorted = (
             turbine_turbulence_intensity * flow_field.u_initial_sorted / flow_field.u_sorted
         )
@@ -1151,6 +1155,8 @@ def turbopark_solver(
 
     flow_field.turbulence_intensity_field_sorted = turbine_turbulence_intensity
     if model_manager.enable_turbine_turbulence_grid:
+        # An approximate method to account for scaling of turbulence intensity with
+        # the local flow velocity. Unvalidated method used for informing surrogate models.
         flow_field.turbulence_wake_mixing_sorted = (
             turbine_turbulence_intensity * flow_field.u_initial_sorted / flow_field.u_sorted
         )
@@ -1389,6 +1395,8 @@ def empirical_gauss_solver(
         flow_field.w_sorted += w_wake
 
     if model_manager.enable_turbine_turbulence_grid:
+        # An approximate method to account for scaling of turbulence intensity with
+        # the local flow velocity. Unvalidated method used for informing surrogate models.
         flow_field.turbulence_wake_mixing_sorted = (
             np.nan * flow_field.u_initial_sorted / flow_field.u_sorted
         )
