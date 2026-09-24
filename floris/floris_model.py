@@ -588,7 +588,8 @@ class FlorisModel(LoggingManager):
 
     def get_turbine_powers_percent(self):
         """
-        Calculates the percent power at each turbine in the wind farm, relative to the max power of that turbine.
+        Calculates the percent power at each turbine in the wind farm, relative to
+        the max power of that turbine.
 
         Returns:
             NDArrayFloat: Percent power at each turbine.
