@@ -477,9 +477,8 @@ def yaw_added_turbulence_mixing(
     turb_w_i,
     enable_turbine_turbulence_grid,
 ):
-    # Since turbulence mixing is constant for the turbine,
-    # use the left two dimensions only here and expand
-    # before returning. Dimensions are (wd, ws).
+    # If modeling turbulence as a grid, use the full 4D arrays for computations.
+    # Otherwise, average over the spatial dimensions.
 
     if enable_turbine_turbulence_grid:
         average_u_i = np.cbrt(u_i ** 3)
